@@ -19,18 +19,56 @@ Aplikasi menyediakan dua perspektif peran (Asisten Praktikum dan Praktikan) deng
 
 ---
 
-## 2. Panduan Menjalankan Aplikasi
+## 2. Panduan Menjalankan Aplikasi di Perangkat Mobile
 
-### Menjalankan Server Pengembangan
-Jalankan perintah berikut di terminal proyek:
+Aplikasi dapat dijalankan pada smartphone Android atau iPhone melalui aplikasi **Expo Go**. Terdapat tiga metode yang dapat digunakan:
+
+### Metode A: Menggunakan Akun expo.dev (Rekomendasi - Tanpa Scan QR)
+Metode ini paling praktis karena proyek yang sedang berjalan akan otomatis terdeteksi di ponsel Anda tanpa perlu memindai kode QR menggunakan kamera:
+
+1. **Daftar Akun**: Jika belum memiliki akun, daftar gratis di [expo.dev/signup](https://expo.dev/signup).
+2. **Login di Terminal Komputer**:
+   ```bash
+   npx expo login
+   ```
+   Masukkan email/username dan password akun Expo Anda. Pastikan login berhasil dengan perintah:
+   ```bash
+   npx expo whoami
+   ```
+3. **Login di Aplikasi Ponsel**:
+   - Buka aplikasi **Expo Go** di Android atau iPhone.
+   - Buka menu akun/profil, lalu masuk menggunakan akun Expo yang sama persis dengan yang ada di terminal komputer.
+4. **Jalankan Server Metro**:
+   ```bash
+   npx expo start
+   ```
+5. **Buka Proyek**:
+   - Di aplikasi Expo Go ponsel Anda, lihat bagian **Projects** atau **Development Servers**.
+   - Nama proyek `ppk-mobile-praktikum` akan otomatis muncul. Ketuk proyek tersebut untuk langsung menjalankannya.
+
+### Metode B: Menggunakan Pemindaian Kode QR (Satu Jaringan Wi-Fi)
+Pastikan komputer dan ponsel terhubung pada jaringan Wi-Fi atau hotspot yang sama:
+
+1. Jalankan server di terminal:
+   ```bash
+   npx expo start --clear
+   ```
+2. Pindai kode QR yang tampil di terminal:
+   - **Android**: Buka Expo Go, pilih tombol "Scan QR code", dan arahkan kamera ke kode QR.
+   - **iOS (iPhone)**: Buka aplikasi Kamera bawaan iPhone, arahkan ke kode QR, lalu ketuk notifikasi kuning "Open in Expo Go".
+
+### Metode C: Menggunakan Mode Tunnel (Beda Jaringan / Wi-Fi Kampus Terisolasi)
+Gunakan metode ini jika komputer dan ponsel berada di jaringan Wi-Fi yang berbeda atau jaringan publik dengan proteksi firewall ketat:
+
 ```bash
-npx expo start --clear
+npx expo start --tunnel
 ```
 
-Setelah server Metro bundler aktif:
-- Perangkat Fisik (Android / iOS): Pindai kode QR yang muncul di terminal menggunakan aplikasi Expo Go.
-- Web Browser: Tekan tombol `w` di terminal.
-- Emulator Android: Tekan tombol `a` di terminal.
+### Tombol Pintasan Berguna di Terminal
+- Tekan `r` : Memuat ulang (*reload*) aplikasi di ponsel.
+- Tekan `w` : Membuka aplikasi versi web browser.
+- Tekan `a` : Membuka emulator Android lokal.
+- Tekan `c` : Menampilkan kembali kode QR di terminal.
 
 ---
 
