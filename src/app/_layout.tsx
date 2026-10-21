@@ -7,43 +7,45 @@
 
 import React from 'react';
 import { Stack } from 'expo-router';
+import { AppProvider } from '@/context/AppContext';
 
 /**
- * RootLayout mendefinisikan navigator root aplikasi menggunakan Stack.
- * - (tabs): Grup rute navigasi tab utama (header disembunyikan agar setiap tab mengontrol headernya sendiri).
- * - +not-found: Layar otomatis saat user mengakses URL/rute yang tidak valid.
+ * RootLayout mendefinisikan navigator root aplikasi menggunakan Stack,
+ * dibungkus dengan AppProvider untuk manajemen state global.
  */
 export default function RootLayout(): React.JSX.Element {
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#090d16',
-        },
-        headerTintColor: '#f8fafc',
-        headerTitleStyle: {
-          fontWeight: '700',
-        },
-        contentStyle: {
-          backgroundColor: '#090d16',
-        },
-      }}
-    >
-      {/* Grup Bottom Tabs - header disembunyikan di root stack */}
-      <Stack.Screen
-        name="(tabs)"
-        options={{
-          headerShown: false,
+    <AppProvider>
+      <Stack
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#090d16',
+          },
+          headerTintColor: '#f8fafc',
+          headerTitleStyle: {
+            fontWeight: '700',
+          },
+          contentStyle: {
+            backgroundColor: '#090d16',
+          },
         }}
-      />
+      >
+        {/* Grup Bottom Tabs - header disembunyikan di root stack */}
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+          }}
+        />
 
-      {/* Fallback Screen untuk rute yang tidak ditemukan */}
-      <Stack.Screen
-        name="+not-found"
-        options={{
-          title: 'Halaman Tidak Ditemukan',
-        }}
-      />
-    </Stack>
+        {/* Fallback Screen untuk rute yang tidak ditemukan */}
+        <Stack.Screen
+          name="+not-found"
+          options={{
+            title: 'Halaman Tidak Ditemukan',
+          }}
+        />
+      </Stack>
+    </AppProvider>
   );
 }

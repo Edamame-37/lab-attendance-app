@@ -10,11 +10,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
- * TabLayout mendefinisikan navigasi tab bawah untuk 4 modul praktikum:
- * 1. index (React Fundamentals)
- * 2. flexbox (Flexbox Layout)
- * 3. state-input (useState & Handling Text Input)
- * 4. modal-style (Modal & StyleSheet)
+ * TabLayout mendefinisikan navigasi tab bawah untuk aplikasi Presensi Praktikum:
+ * 1. index (Jadwal & Pengelolaan Sesi)
+ * 2. presensi (Pencatatan Presensi Praktikan)
+ * 3. rekap (Rekapitulasi Kehadiran Praktikum)
+ * 4. profil (Profil Pengguna & Switcher Peran)
  */
 export default function TabLayout(): React.JSX.Element {
   return (
@@ -37,14 +37,14 @@ export default function TabLayout(): React.JSX.Element {
         },
       }}
     >
-      {/* Tab 1: React Fundamentals */}
+      {/* Tab 1: Jadwal & Kontrol Sesi */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Fundamental',
+          title: 'Jadwal Sesi',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'cube' : 'cube-outline'}
+              name={focused ? 'calendar' : 'calendar-outline'}
               size={22}
               color={color as string}
             />
@@ -52,14 +52,14 @@ export default function TabLayout(): React.JSX.Element {
         }}
       />
 
-      {/* Tab 2: Flexbox Layout */}
+      {/* Tab 2: Presensi Praktikan */}
       <Tabs.Screen
-        name="flexbox"
+        name="presensi"
         options={{
-          title: 'Flexbox',
+          title: 'Presensi',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'grid' : 'grid-outline'}
+              name={focused ? 'checkbox' : 'checkbox-outline'}
               size={22}
               color={color as string}
             />
@@ -67,14 +67,14 @@ export default function TabLayout(): React.JSX.Element {
         }}
       />
 
-      {/* Tab 3: useState & Handling Text Input */}
+      {/* Tab 3: Rekapitulasi Kehadiran */}
       <Tabs.Screen
-        name="state-input"
+        name="rekap"
         options={{
-          title: 'Input State',
+          title: 'Rekapitulasi',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'create' : 'create-outline'}
+              name={focused ? 'clipboard' : 'clipboard-outline'}
               size={22}
               color={color as string}
             />
@@ -82,14 +82,14 @@ export default function TabLayout(): React.JSX.Element {
         }}
       />
 
-      {/* Tab 4: Modal & StyleSheet */}
+      {/* Tab 4: Profil & Alih Peran */}
       <Tabs.Screen
-        name="modal-style"
+        name="profil"
         options={{
-          title: 'Modal & Style',
+          title: 'Profil',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'browsers' : 'browsers-outline'}
+              name={focused ? 'person' : 'person-outline'}
               size={22}
               color={color as string}
             />

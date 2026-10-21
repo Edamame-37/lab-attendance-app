@@ -1,258 +1,579 @@
 /**
  * @file src/app/(tabs)/index.tsx
- * @description Modul Pembelajaran 1: React Fundamentals & TypeScript Props
- * Referensi: https://reactnative.dev/docs/intro-react?language=typescript&guide=android
+ * @description Layar Jadwal dan Detail Sesi Praktikum.
+ * Area Kerja Utama: Pemrogram 1 (Pengelolaan Sesi & Alur Asisten).
  *
- * Konsep Inti yang Dipelajari:
- * 1. Komponen Kustom (Custom Component): Memecah UI menjadi blok kode reusable.
- * 2. Props & TypeScript Typing: Mendefinisikan tipe data props dengan interface secara ketat.
- * 3. JSX pada React Native: Komponen berbasis native (View, Text) alih-alih elemen HTML (div, span).
- * 4. Komposisi Komponen: Menyusun komponen anak di dalam komponen induk.
+ * Tanggung Jawab Pemrogram 1:
+ * - Menampilkan daftar jadwal praktikum beserta status sesi (DIBUKA, DITUTUP, SELESAI).
+ * - Mengimplementasikan kontrol aksi bagi Asisten Praktikum:
+ *   1. Membuka sesi yang berstatus DITUTUP melalui dialog modal.
+ *   2. Menutup sesi yang berstatus DIBUKA melalui dialog konfirmasi modal.
+ * - Memastikan perubahan status sesi terdistribusi secara reaktif ke seluruh aplikasi.
  */
 
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  Alert,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useApp } from '@/context/AppContext';
+import { JadwalSesi } from '@/types';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { SectionCard } from '@/components/SectionCard';
+import { BadgeStatus } from '@/components/common/BadgeStatus';
+import { RoleSelector } from '@/components/common/RoleSelector';
+import { EmptyState } from '@/components/common/EmptyState';
+import { Ionicons } from '@expo/vector-icons';
 
-/**
- * Interface untuk Props pada Custom Component MahasiswaCard
- */
-interface MahasiswaProps {
-  /** Nama lengkap mahasiswa */
-  nama: string;
-  /** Nomor Induk Mahasiswa */
-  nim: string;
-  /** Kelas praktikum */
-  kelas: string;
-  /** Status keaktifan (opsional) */
-  isActive?: boolean;
-}
+export default function JadwalSesiScreen(): React.JSX.Element {
+  const router = useRouter();
+  const { peranAktif, penggunaAktif, daftarSesi, bukaSesi, tutupSesi } = useApp();
 
-/**
- * Custom Component yang menerima Props bertipe TypeScript.
- * Mencontohkan konsep 'Props' dari dokumentasi React Fundamentals.
- */
-const MahasiswaCard: React.FC<MahasiswaProps> = ({
-  nama,
-  nim,
-  kelas,
-  isActive = true,
-}) => {
-  return (
-    <View style={cardStyles.container}>
-      <View style={cardStyles.headerRow}>
-        <Text style={cardStyles.namaText}>{nama}</Text>
-        <View
-          style={[
-            cardStyles.badge,
-            isActive ? cardStyles.badgeActive : cardStyles.badgeInactive,
-          ]}
-        >
-          <Text style={cardStyles.badgeText}>
-            {isActive ? 'Aktif' : 'Non-Aktif'}
-          </Text>
-        </View>
-      </View>
-      <Text style={cardStyles.nimText}>NIM: {nim}</Text>
-      <Text style={cardStyles.kelasText}>Kelas: {kelas}</Text>
-    </View>
-  );
-};
+  // State modal aksi asisten (Buka / Tutup Sesi)
+  const [selectedSesi, setSelectedSesi] = useState<JadwalSesi | null>(null);
+  const [modalBukaVisible, setModalBukaVisible] = useState<boolean>(false);
+  const [modalTutupVisible, setModalTutupVisible] = useState<boolean>(false);
+  const [inputRuangLab, setInputRuangLab] = useState<string>('');
 
-const cardStyles = StyleSheet.create({
-  container: {
-    backgroundColor: '#0a101f',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  namaText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  badgeActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderColor: '#22c55e',
-    borderWidth: 1,
-  },
-  badgeInactive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: '#ef4444',
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#22c55e',
-  },
-  nimText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginBottom: 2,
-  },
-  kelasText: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-});
+  /**
+   * Handler untuk membuka dialog modal buka sesi
+   */
+  const handleBukaModalOpen = (sesi: JadwalSesi): void => {
+    setSelectedSesi(sesi);
+    setInputRuangLab(sesi.ruangLab);
+    setModalBukaVisible(true);
+  };
 
-/**
- * Layar Utama React Fundamentals
- */
-export default function ReactFundamentalsScreen(): React.JSX.Element {
-  // State untuk mendemonstrasikan re-render komponen saat data berubah
-  const [kehadiranCount, setKehadiranCount] = useState<number>(3);
+  /**
+   * Handler konfirmasi pembukaan sesi oleh Asisten
+   */
+  const handleKonfirmasiBukaSesi = (): void => {
+    if (selectedSesi) {
+      bukaSesi(selectedSesi.id, inputRuangLab);
+      setModalBukaVisible(false);
+      setSelectedSesi(null);
+    }
+  };
 
-  // Daftar data mahasiswa untuk dirender menggunakan pola map (perulangan JSX)
-  const dataMahasiswa: MahasiswaProps[] = [
-    { nama: 'Ahmad Fauzi', nim: '2141720001', kelas: 'TI-3A', isActive: true },
-    { nama: 'Budi Santoso', nim: '2141720045', kelas: 'TI-3A', isActive: true },
-    { nama: 'Citra Lestari', nim: '2141720088', kelas: 'TI-3B', isActive: false },
-  ];
+  /**
+   * Handler untuk membuka dialog konfirmasi tutup sesi
+   */
+  const handleTutupModalOpen = (sesi: JadwalSesi): void => {
+    setSelectedSesi(sesi);
+    setModalTutupVisible(true);
+  };
+
+  /**
+   * Handler konfirmasi penutupan sesi oleh Asisten
+   */
+  const handleKonfirmasiTutupSesi = (): void => {
+    if (selectedSesi) {
+      tutupSesi(selectedSesi.id);
+      setModalTutupVisible(false);
+      setSelectedSesi(null);
+    }
+  };
 
   return (
     <ScreenContainer
-      badge="Modul 1"
-      title="React Fundamentals"
-      description="Pengenalan komponen kustom, JSX, dan integrasi TypeScript Props sesuai standar React Native."
-      docUrl="https://reactnative.dev/docs/intro-react"
+      badge="Sprint 1"
+      title="Jadwal & Sesi Praktikum"
+      description="Pemantauan jadwal perkuliahan dan siklus sesi praktikum untuk Asisten dan Praktikan."
+      docUrl="Sprint 1: Modul Pengelolaan Sesi"
     >
-      {/* Seksi 1: Teori Dasar */}
+      {/* Pengalih Peran Pengguna (Untuk kemudahan pengujian sprint) */}
+      <RoleSelector />
+
+      {/* Informasi Pengguna Aktif */}
       <SectionCard
-        title="1. Konsep Dasar Komponen & JSX"
-        subtitle="Komponen adalah blok pembangun UI mandiri. React Native menggunakan komponen bawaan seperti <View> dan <Text>."
+        title="Identitas Pengguna Aktif"
+        subtitle="Sistem menyesuaikan aksi pada jadwal berdasarkan peran yang sedang aktif."
       >
-        <View style={styles.codeSnippet}>
-          <Text style={styles.codeText}>
-            {'// Contoh Definisi Komponen & Props:\n'}
-            {'interface Props { nama: string; nim: string }\n'}
-            {'function MahasiswaCard({ nama, nim }: Props) {\n'}
-            {'  return (\n'}
-            {'    <View>\n'}
-            {'      <Text>{nama}</Text>\n'}
-            {'    </View>\n'}
-            {'  );\n'}
-            {'}'}
-          </Text>
+        <View style={styles.profileRow}>
+          <View style={styles.avatarCircle}>
+            <Ionicons
+              name={peranAktif === 'asisten' ? 'briefcase' : 'school'}
+              size={22}
+              color="#38bdf8"
+            />
+          </View>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{penggunaAktif.nama}</Text>
+            <Text style={styles.profileSub}>
+              {peranAktif === 'asisten'
+                ? `Asisten Lab - ID: ${penggunaAktif.nomorInduk}`
+                : `Mahasiswa - NIM: ${penggunaAktif.nomorInduk} (${penggunaAktif.kelas})`}
+            </Text>
+          </View>
         </View>
       </SectionCard>
 
-      {/* Seksi 2: Implementasi Custom Component dengan Props */}
+      {/* Daftar Jadwal Praktikum */}
       <SectionCard
-        title="2. Implementasi Props dengan TypeScript"
-        subtitle="Komponen MahasiswaCard di bawah dirender dengan mem-passing props berbeda secara dinamis:"
+        title="Daftar Jadwal Praktikum"
+        subtitle={
+          peranAktif === 'asisten'
+            ? 'Asisten dapat mengelola pembukaan dan penutupan sesi praktikum.'
+            : 'Praktikan dapat melihat status sesi dan melakukan presensi saat sesi dibuka.'
+        }
       >
-        {dataMahasiswa.map((mhs) => (
-          <MahasiswaCard
-            key={mhs.nim}
-            nama={mhs.nama}
-            nim={mhs.nim}
-            kelas={mhs.kelas}
-            isActive={mhs.isActive}
+        {daftarSesi.length === 0 ? (
+          <EmptyState
+            title="Tidak Ada Jadwal Sesi"
+            description="Belum ada jadwal praktikum yang terdaftar dalam sistem."
           />
-        ))}
+        ) : (
+          daftarSesi.map((sesi) => (
+            <View key={sesi.id} style={styles.sesiCard}>
+              {/* Header Sesi */}
+              <View style={styles.sesiHeader}>
+                <View style={styles.sesiTitleCol}>
+                  <Text style={styles.kodeMk}>{sesi.kodeMataKuliah}</Text>
+                  <Text style={styles.namaMk}>{sesi.namaPraktikum}</Text>
+                </View>
+                <BadgeStatus status={sesi.status} />
+              </View>
+
+              {/* Rincian Sesi */}
+              <View style={styles.detailBox}>
+                <Text style={styles.topikText}>{sesi.topikMateri}</Text>
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={14} color="#94a3b8" />
+                    <Text style={styles.metaText}>
+                      {sesi.hari}, {sesi.jamMulai} - {sesi.jamSelesai}
+                    </Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="location-outline" size={14} color="#94a3b8" />
+                    <Text style={styles.metaText}>{sesi.ruangLab}</Text>
+                  </View>
+                </View>
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="people-outline" size={14} color="#94a3b8" />
+                    <Text style={styles.metaText}>Kelas: {sesi.kelas}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="person-outline" size={14} color="#94a3b8" />
+                    <Text style={styles.metaText}>Asisten: {sesi.namaAsisten}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Baris Tombol Aksi Sesuai Peran */}
+              <View style={styles.actionContainer}>
+                {peranAktif === 'asisten' ? (
+                  // Sudut Pandang Asisten
+                  <View style={styles.actionBtnRow}>
+                    {sesi.status === 'DITUTUP' && (
+                      <TouchableOpacity
+                        style={[styles.btnAction, styles.btnBuka]}
+                        onPress={() => handleBukaModalOpen(sesi)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="play-outline" size={16} color="#ffffff" />
+                        <Text style={styles.btnActionText}>Buka Sesi Praktikum</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {sesi.status === 'DIBUKA' && (
+                      <TouchableOpacity
+                        style={[styles.btnAction, styles.btnTutup]}
+                        onPress={() => handleTutupModalOpen(sesi)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="stop-outline" size={16} color="#ffffff" />
+                        <Text style={styles.btnActionText}>Tutup Sesi Praktikum</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {sesi.status === 'SELESAI' && (
+                      <View style={styles.infoCompleted}>
+                        <Ionicons
+                          name="checkmark-circle-outline"
+                          size={16}
+                          color="#94a3b8"
+                        />
+                        <Text style={styles.infoCompletedText}>
+                          Sesi praktikum telah selesai dilaksanakan.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  // Sudut Pandang Praktikan
+                  <View style={styles.actionBtnRow}>
+                    {sesi.status === 'DIBUKA' ? (
+                      <TouchableOpacity
+                        style={[styles.btnAction, styles.btnPresensi]}
+                        onPress={() => router.push('/(tabs)/presensi')}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name="checkbox-outline"
+                          size={16}
+                          color="#ffffff"
+                        />
+                        <Text style={styles.btnActionText}>
+                          Lakukan Presensi Sekarang
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.infoWait}>
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={16}
+                          color="#64748b"
+                        />
+                        <Text style={styles.infoWaitText}>
+                          {sesi.status === 'DITUTUP'
+                            ? 'Menunggu asisten membuka sesi praktikum.'
+                            : 'Presensi untuk sesi ini telah ditutup.'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+          ))
+        )}
       </SectionCard>
 
-      {/* Seksi 3: Siklus Re-render */}
-      <SectionCard
-        title="3. Eksplorasi Re-render Komponen"
-        subtitle="Saat nilai state bertambah, komponen dirender ulang untuk merefleksikan data terbaru:"
+      {/* Modal Dialog: Pembukaan Sesi (Asisten) */}
+      <Modal
+        visible={modalBukaVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalBukaVisible(false)}
       >
-        <View style={styles.counterRow}>
-          <Text style={styles.counterLabel}>Total Kehadiran Hari Ini:</Text>
-          <Text style={styles.counterValue}>{kehadiranCount}</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Konfirmasi Pembukaan Sesi</Text>
+              <TouchableOpacity onPress={() => setModalBukaVisible(false)}>
+                <Ionicons name="close" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalText}>
+              Anda akan membuka sesi praktikum:
+            </Text>
+            <Text style={styles.modalHighlight}>
+              {selectedSesi?.namaPraktikum} ({selectedSesi?.kelas})
+            </Text>
+
+            <Text style={styles.inputLabel}>Konfirmasi Ruang Laboratorium:</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={inputRuangLab}
+              onChangeText={setInputRuangLab}
+              placeholder="Contoh: Lab RPL 1"
+              placeholderTextColor="#64748b"
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalBukaVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalBtnCancelText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnSubmit}
+                onPress={handleKonfirmasiBukaSesi}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalBtnSubmitText}>Buka Sesi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.btnAction}
-            onPress={() => setKehadiranCount((c) => c + 1)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnText}>+ Tambah Hadir</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btnAction, styles.btnReset]}
-            onPress={() => setKehadiranCount(0)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.btnText, styles.btnResetText]}>Reset</Text>
-          </TouchableOpacity>
+      </Modal>
+
+      {/* Modal Dialog: Penutupan Sesi (Asisten) */}
+      <Modal
+        visible={modalTutupVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalTutupVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Konfirmasi Penutupan Sesi</Text>
+              <TouchableOpacity onPress={() => setModalTutupVisible(false)}>
+                <Ionicons name="close" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalText}>
+              Apakah Anda yakin ingin menutup sesi praktikum ini?
+            </Text>
+            <Text style={styles.modalHighlight}>
+              {selectedSesi?.namaPraktikum} ({selectedSesi?.kelas})
+            </Text>
+            <Text style={styles.modalWarning}>
+              Setelah sesi ditutup, praktikan tidak dapat lagi melakukan presensi
+              kehadiran pada sesi ini.
+            </Text>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalTutupVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalBtnCancelText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnSubmit, styles.modalBtnDanger]}
+                onPress={handleKonfirmasiTutupSesi}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalBtnSubmitText}>Ya, Tutup Sesi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </SectionCard>
+      </Modal>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  codeSnippet: {
-    backgroundColor: '#0a0f1d',
-    padding: 12,
-    borderRadius: 8,
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0a101f',
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  profileSub: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  sesiCard: {
+    backgroundColor: '#0a101f',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#1e293b',
   },
-  codeText: {
-    fontFamily: 'monospace',
-    color: '#38bdf8',
-    fontSize: 12,
-    lineHeight: 18,
+  sesiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    gap: 10,
   },
-  counterRow: {
+  sesiTitleCol: {
+    flex: 1,
+  },
+  kodeMk: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginBottom: 2,
+  },
+  namaMk: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f8fafc',
+    lineHeight: 20,
+  },
+  detailBox: {
+    backgroundColor: '#131b2e',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  topikText: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  actionContainer: {
+    marginTop: 4,
+  },
+  actionBtnRow: {
+    width: '100%',
+  },
+  btnAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  btnBuka: {
+    backgroundColor: '#16a34a', // Green 600
+  },
+  btnTutup: {
+    backgroundColor: '#dc2626', // Red 600
+  },
+  btnPresensi: {
+    backgroundColor: '#2563eb', // Blue 600
+  },
+  btnActionText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  infoCompleted: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  infoCompletedText: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  infoWait: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  infoWaitText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    width: '100%',
+    backgroundColor: '#131b2e',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0a101f',
-    padding: 14,
-    borderRadius: 10,
     marginBottom: 12,
   },
-  counterLabel: {
-    color: '#cbd5e1',
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  modalText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 4,
+  },
+  modalHighlight: {
     fontSize: 14,
-    fontWeight: '500',
-  },
-  counterValue: {
+    fontWeight: '700',
     color: '#38bdf8',
-    fontSize: 22,
-    fontWeight: '800',
+    marginBottom: 14,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
+  modalWarning: {
+    fontSize: 12,
+    color: '#f87171',
+    lineHeight: 18,
+    marginBottom: 16,
   },
-  btnAction: {
-    flex: 1,
-    backgroundColor: '#2563eb',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#cbd5e1',
+    marginBottom: 6,
   },
-  btnReset: {
-    backgroundColor: 'transparent',
+  modalInput: {
+    backgroundColor: '#0a101f',
     borderWidth: 1,
     borderColor: '#334155',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#f8fafc',
+    fontSize: 13,
+    marginBottom: 18,
   },
-  btnText: {
-    color: '#ffffff',
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  modalBtnCancel: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
+  },
+  modalBtnCancelText: {
+    color: '#94a3b8',
     fontSize: 13,
     fontWeight: '600',
   },
-  btnResetText: {
-    color: '#94a3b8',
+  modalBtnSubmit: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#16a34a',
+  },
+  modalBtnDanger: {
+    backgroundColor: '#dc2626',
+  },
+  modalBtnSubmitText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
