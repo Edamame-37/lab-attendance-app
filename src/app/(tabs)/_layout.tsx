@@ -1,13 +1,15 @@
 /**
  * @file src/app/(tabs)/_layout.tsx
  * @description Layout untuk Bottom Tab Navigator pada Expo Router.
- * Menghubungkan 4 tab materi praktikum dengan ikon @expo/vector-icons.
+ * Menghubungkan 4 tab materi praktikum dengan ikon @expo/vector-icons serta
+ * menampilkan indikator badge dinamis sesuai state sesi dan catatan presensi.
  * Referensi: https://docs.expo.dev/tutorial/add-navigation/
  */
 
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useApp } from '@/context/AppContext';
 
 /**
  * TabLayout mendefinisikan navigasi tab bawah untuk aplikasi Presensi Praktikum:
@@ -17,6 +19,13 @@ import { Ionicons } from '@expo/vector-icons';
  * 4. profil (Profil Pengguna & Switcher Peran)
  */
 export default function TabLayout(): React.JSX.Element {
+  const { daftarSesi, daftarPresensi } = useApp();
+
+  const jumlahSesiDibuka = daftarSesi.filter(
+    (sesi) => sesi.status === 'DIBUKA'
+  ).length;
+  const totalPresensiTercatat = daftarPresensi.length;
+
   return (
     <Tabs
       screenOptions={{
@@ -34,6 +43,12 @@ export default function TabLayout(): React.JSX.Element {
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
+        },
+        tabBarBadgeStyle: {
+          backgroundColor: '#2563eb',
+          color: '#ffffff',
+          fontSize: 10,
+          fontWeight: '700',
         },
       }}
     >
@@ -57,6 +72,7 @@ export default function TabLayout(): React.JSX.Element {
         name="presensi"
         options={{
           title: 'Presensi',
+          tabBarBadge: jumlahSesiDibuka > 0 ? jumlahSesiDibuka : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'checkbox' : 'checkbox-outline'}
@@ -72,6 +88,8 @@ export default function TabLayout(): React.JSX.Element {
         name="rekap"
         options={{
           title: 'Rekapitulasi',
+          tabBarBadge:
+            totalPresensiTercatat > 0 ? totalPresensiTercatat : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'clipboard' : 'clipboard-outline'}
