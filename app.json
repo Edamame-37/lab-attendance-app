@@ -24,7 +24,8 @@
     "scheme": "ppk-mobile",
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
