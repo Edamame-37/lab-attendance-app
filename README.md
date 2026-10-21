@@ -136,3 +136,16 @@ Layanan build klasik `expo build` telah ditutup permanen. Gunakan EAS Build:
   ```bash
   npx expo-doctor
   ```
+
+---
+
+## 6. Panduan Pembaruan Nirkabel (EAS Update / Over-The-Air)
+
+Setelah APK yang memuat runtime `expo-updates` dipasang di ponsel, pembaruan kode JavaScript, TypeScript, atau antarmuka UI dapat dikirimkan langsung tanpa perlu membuat atau memasang ulang APK:
+
+1. Kirim pembaruan ke saluran (*channel*) preview:
+   ```bash
+   npx eas-cli update --branch preview --message "deskripsi pembaruan"
+   ```
+2. Buka aplikasi di ponsel yang terhubung internet. Aplikasi akan otomatis mengunduh bundle terbaru di latar belakang dan menerapkannya pada pembukaan aplikasi berikutnya.
+
