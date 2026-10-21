@@ -12,7 +12,7 @@
  * - Menampilkan daftar riwayat kehadiran mahasiswa aktif.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,10 +23,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { useApp } from '@/context/AppContext';
-import { StatusKehadiran, JadwalSesi } from '@/types';
+import type { StatusKehadiran } from '@/types';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { SectionCard } from '@/components/SectionCard';
-import { BadgeStatus } from '@/components/common/BadgeStatus';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -51,6 +50,15 @@ export default function PresensiScreen(): React.JSX.Element {
   const [statusKehadiran, setStatusKehadiran] =
     useState<StatusKehadiran>('HADIR');
   const [catatan, setCatatan] = useState<string>('');
+  useEffect(() => {
+  const sesiMasihDibuka = sesiDibukaList.some(
+    (sesi) => sesi.id === selectedSesiId
+  );
+
+  if (!sesiMasihDibuka) {
+    setSelectedSesiId(sesiDibukaList[0]?.id ?? '');
+  }
+}, [daftarSesi, selectedSesiId]);
 
   // State modal umpan balik berhasil
   const [modalSuksesVisible, setModalSuksesVisible] = useState<boolean>(false);

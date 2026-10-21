@@ -1,13 +1,12 @@
 /**
  * @file src/components/common/RoleSelector.tsx
  * @description Komponen pemilih peran (Praktikan vs Asisten Praktikum) dan identitas pengguna aktif.
- * Memudahkan pengujian sprint dari dua sudut pandang peran tanpa emoji.
+ * Memudahkan pengujian sprint dari dua sudut pandang peran secara responsif tanpa simbol emoji.
  */
 
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useApp } from '@/context/AppContext';
-import { PeranPengguna } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 
 export const RoleSelector: React.FC = () => {
@@ -30,9 +29,16 @@ export const RoleSelector: React.FC = () => {
           <Ionicons name="people-outline" size={16} color="#38bdf8" />
           <Text style={styles.title}>Simulasi Peran Pengguna</Text>
         </View>
-        <Text style={styles.currentBadge}>
-          {peranAktif === 'asisten' ? 'Mode Asisten' : 'Mode Praktikan'}
-        </Text>
+        <View style={styles.currentBadgeBox}>
+          <Ionicons
+            name={peranAktif === 'asisten' ? 'shield-checkmark-outline' : 'person-circle-outline'}
+            size={12}
+            color="#38bdf8"
+          />
+          <Text style={styles.currentBadge}>
+            {peranAktif === 'asisten' ? 'Mode Asisten' : 'Mode Praktikan'}
+          </Text>
+        </View>
       </View>
 
       {/* Toggle Peran */}
@@ -56,7 +62,7 @@ export const RoleSelector: React.FC = () => {
               peranAktif === 'praktikan' && styles.tabTextActive,
             ]}
           >
-            Praktikan
+            Praktikan ({daftarPraktikan.length})
           </Text>
         </TouchableOpacity>
 
@@ -79,14 +85,20 @@ export const RoleSelector: React.FC = () => {
               peranAktif === 'asisten' && styles.tabTextActive,
             ]}
           >
-            Asisten Praktikum
+            Asisten Praktikum ({daftarAsisten.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Pilihan Akun Pengguna Aktif */}
       <View style={styles.userSection}>
-        <Text style={styles.userLabel}>Pilih Identitas Pengguna:</Text>
+        <View style={styles.userHeaderRow}>
+          <Text style={styles.userLabel}>Pilih Identitas Pengguna:</Text>
+          <Text style={styles.activeUserHint}>
+            Aktif: {penggunaAktif.nama}
+            {penggunaAktif.kelas ? ` (${penggunaAktif.kelas})` : ''}
+          </Text>
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.userRow}>
             {daftarPenggunaSesuaiPeran.map((p) => {
@@ -101,15 +113,37 @@ export const RoleSelector: React.FC = () => {
                   onPress={() => gantiPengguna(p.id)}
                   activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.userName,
-                      isSelected && styles.userNameActive,
-                    ]}
-                  >
-                    {p.nama}
+                  <View style={styles.userChipTop}>
+                    <Text
+                      style={[
+                        styles.userName,
+                        isSelected && styles.userNameActive,
+                      ]}
+                    >
+                      {p.nama}
+                    </Text>
+                    {p.kelas && (
+                      <View
+                        style={[
+                          styles.kelasTag,
+                          isSelected && styles.kelasTagActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.kelasTagText,
+                            isSelected && styles.kelasTagTextActive,
+                          ]}
+                        >
+                          {p.kelas}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.userSub}>
+                    {p.peran === 'asisten' ? 'NIP: ' : 'NIM: '}
+                    {p.nomorInduk}
                   </Text>
-                  <Text style={styles.userSub}>{p.nomorInduk}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -145,14 +179,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#f8fafc',
   },
+  currentBadgeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
   currentBadge: {
     fontSize: 11,
     fontWeight: '600',
     color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -184,10 +225,20 @@ const styles = StyleSheet.create({
   userSection: {
     marginTop: 2,
   },
+  userHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   userLabel: {
     fontSize: 11,
     color: '#94a3b8',
-    marginBottom: 6,
+  },
+  activeUserHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#38bdf8',
   },
   userRow: {
     flexDirection: 'row',
@@ -198,12 +249,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 8,
   },
   userChipActive: {
     borderColor: '#38bdf8',
     backgroundColor: 'rgba(56, 189, 248, 0.12)',
+  },
+  userChipTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   userName: {
     fontSize: 12,
@@ -213,9 +269,29 @@ const styles = StyleSheet.create({
   userNameActive: {
     color: '#38bdf8',
   },
+  kelasTag: {
+    backgroundColor: '#131b2e',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  kelasTagActive: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+  },
+  kelasTagText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  kelasTagTextActive: {
+    color: '#38bdf8',
+  },
   userSub: {
     fontSize: 10,
     color: '#64748b',
-    marginTop: 1,
+    marginTop: 2,
   },
 });
