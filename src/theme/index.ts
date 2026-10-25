@@ -45,6 +45,8 @@ export interface ThemeColors {
   /** Warna indikator status */
   statusHadir: string;
   statusHadirSurface: string;
+  statusHadirBg: string;
+  statusHadirBorder: string;
   statusIzin: string;
   statusIzinSurface: string;
   statusSakit: string;
@@ -86,6 +88,8 @@ export const lightTheme: ThemeColors = {
 
   statusHadir: '#059669',
   statusHadirSurface: '#ECFDF5',
+  statusHadirBg: '#ECFDF5',
+  statusHadirBorder: 'rgba(5, 150, 105, 0.25)',
   statusIzin: '#4F46E5',
   statusIzinSurface: '#EEF2FF',
   statusSakit: '#D97706',
@@ -126,6 +130,8 @@ export const darkTheme: ThemeColors = {
 
   statusHadir: '#10B981',
   statusHadirSurface: 'rgba(16, 185, 129, 0.12)',
+  statusHadirBg: 'rgba(16, 185, 129, 0.12)',
+  statusHadirBorder: 'rgba(16, 185, 129, 0.25)',
   statusIzin: '#818CF8',
   statusIzinSurface: 'rgba(129, 140, 248, 0.12)',
   statusSakit: '#FBBF24',
