@@ -419,21 +419,15 @@ export default function PresensiScreen(): React.JSX.Element {
                 }${riwayat.catatan ? ` · ${riwayat.catatan}` : ''}`}
                 isLast={index === riwayatSaya.length - 1}
                 rightElement={
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: tema.surfaceRaised },
-                    ]}
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '600',
+                      color: badgeColor,
+                    }}
                   >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        { color: badgeColor },
-                      ]}
-                    >
-                      {riwayat.statusKehadiran}
-                    </Text>
-                  </View>
+                    {isHadir ? 'Hadir' : isIzin ? 'Izin' : 'Sakit'}
+                  </Text>
                 }
               />
             );
