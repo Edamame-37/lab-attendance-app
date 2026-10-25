@@ -1,8 +1,9 @@
 /**
  * @file src/app/(tabs)/_layout.tsx
- * @description Layout untuk Bottom Tab Navigator pada Expo Router.
+ * @description Layout untuk Bottom Tab Navigator pada Expo Router dengan dukungan tema dinamis.
+ *
  * Menghubungkan 4 tab materi praktikum dengan ikon @expo/vector-icons serta
- * menampilkan indikator badge dinamis sesuai state sesi dan catatan presensi.
+ * styling tab bar dinamis sesuai tema aktif (Light Mode Warm Stone vs Dark Mode Obsidian).
  * Referensi: https://docs.expo.dev/tutorial/add-navigation/
  */
 
@@ -16,10 +17,10 @@ import { useApp } from '@/context/AppContext';
  * 1. index (Jadwal & Pengelolaan Sesi)
  * 2. presensi (Pencatatan Presensi Praktikan)
  * 3. rekap (Rekapitulasi Kehadiran Praktikum)
- * 4. profil (Profil Pengguna & Switcher Peran)
+ * 4. profil (Profil Pengguna, Switcher Peran & Preferensi Tampilan)
  */
 export default function TabLayout(): React.JSX.Element {
-  const { daftarSesi, daftarPresensi } = useApp();
+  const { daftarSesi, daftarPresensi, tema } = useApp();
 
   const jumlahSesiDibuka = daftarSesi.filter(
     (sesi) => sesi.status === 'DIBUKA'
@@ -30,11 +31,11 @@ export default function TabLayout(): React.JSX.Element {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#38bdf8', // Sky 400
-        tabBarInactiveTintColor: '#64748b', // Slate 500
+        tabBarActiveTintColor: tema.accent,
+        tabBarInactiveTintColor: tema.textMuted,
         tabBarStyle: {
-          backgroundColor: '#0c1322',
-          borderTopColor: '#1e293b',
+          backgroundColor: tema.tabBar,
+          borderTopColor: tema.border,
           borderTopWidth: 1,
           height: 62,
           paddingBottom: 8,
@@ -45,8 +46,8 @@ export default function TabLayout(): React.JSX.Element {
           fontWeight: '600',
         },
         tabBarBadgeStyle: {
-          backgroundColor: '#2563eb',
-          color: '#ffffff',
+          backgroundColor: tema.accent,
+          color: '#FFFFFF',
           fontSize: 10,
           fontWeight: '700',
         },
@@ -56,7 +57,7 @@ export default function TabLayout(): React.JSX.Element {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Jadwal Sesi',
+          title: 'Jadwal',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'calendar' : 'calendar-outline'}
@@ -87,12 +88,12 @@ export default function TabLayout(): React.JSX.Element {
       <Tabs.Screen
         name="rekap"
         options={{
-          title: 'Rekapitulasi',
+          title: 'Rekap',
           tabBarBadge:
             totalPresensiTercatat > 0 ? totalPresensiTercatat : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'clipboard' : 'clipboard-outline'}
+              name={focused ? 'stats-chart' : 'stats-chart-outline'}
               size={22}
               color={color as string}
             />
@@ -100,7 +101,7 @@ export default function TabLayout(): React.JSX.Element {
         }}
       />
 
-      {/* Tab 4: Profil & Alih Peran */}
+      {/* Tab 4: Profil & Preferensi Tampilan */}
       <Tabs.Screen
         name="profil"
         options={{

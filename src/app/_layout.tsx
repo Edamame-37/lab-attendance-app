@@ -1,32 +1,39 @@
 /**
  * @file src/app/_layout.tsx
- * @description Root layout untuk Expo Router.
- * Mendefinisikan Stack Navigator utama yang membungkus (tabs) dan layar fallback +not-found.
+ * @description Root layout untuk Expo Router dengan tema ganda (Light Warm Stone vs Dark Obsidian).
+ *
+ * Menerapkan arsitektur:
+ * - AppProvider membungkus seluruh navigator.
+ * - RootContent menghubungkan state tema (tema.canvas, tema.surface, tema.textPrimary) secara dinamis
+ *   ke Stack screen options dan status bar.
  * Referensi: https://docs.expo.dev/tutorial/add-navigation/
  */
 
 import React from 'react';
 import { Stack } from 'expo-router';
-import { AppProvider } from '@/context/AppContext';
+import { StatusBar } from 'expo-status-bar';
+import { AppProvider, useApp } from '@/context/AppContext';
 
 /**
- * RootLayout mendefinisikan navigator root aplikasi menggunakan Stack,
- * dibungkus dengan AppProvider untuk manajemen state global.
+ * Komponen pembungkus navigasi internal yang mengakses state tema dari context
  */
-export default function RootLayout(): React.JSX.Element {
+function RootNavigator(): React.JSX.Element {
+  const { tema, modeTema } = useApp();
+
   return (
-    <AppProvider>
+    <>
+      <StatusBar style={modeTema === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#090d16',
+            backgroundColor: tema.surface,
           },
-          headerTintColor: '#f8fafc',
+          headerTintColor: tema.textPrimary,
           headerTitleStyle: {
             fontWeight: '700',
           },
           contentStyle: {
-            backgroundColor: '#090d16',
+            backgroundColor: tema.canvas,
           },
         }}
       >
@@ -46,6 +53,17 @@ export default function RootLayout(): React.JSX.Element {
           }}
         />
       </Stack>
+    </>
+  );
+}
+
+/**
+ * RootLayout mendefinisikan penyedia konteks utama aplikasi
+ */
+export default function RootLayout(): React.JSX.Element {
+  return (
+    <AppProvider>
+      <RootNavigator />
     </AppProvider>
   );
 }
