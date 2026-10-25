@@ -271,8 +271,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
+    paddingTop: 4,
+    paddingBottom: 8,
+    marginBottom: 4,
   },
   userBlock: {
     flexDirection: 'row',
