@@ -284,7 +284,7 @@ export default function JadwalSesiScreen(): React.JSX.Element {
                       { color: tema.statusHadir },
                     ]}
                   >
-                    Presensi kamu telah tercatat ({presensiSaya.status}) ·{' '}
+                    Presensi kamu telah tercatat ({presensiSaya.statusKehadiran}) ·{' '}
                     {presensiSaya.waktuPresensi} WIB
                   </Text>
                 </View>
