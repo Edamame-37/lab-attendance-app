@@ -1,75 +1,103 @@
 /**
- * @file ScreenContainer.tsx
- * @description Komponen wrapper untuk layar praktikum.
- * Menyediakan layout terstandarisasi dengan SafeAreaView, ScrollView,
- * dan header informatif yang konsisten di semua tab.
+ * @file src/components/ScreenContainer.tsx
+ * @description Komponen wrapper utama untuk layar aplikasi praktikum.
+ *
+ * Menerapkan arsitektur layout 100% presisi dengan trydesign.html:
+ * - Pembatasan viewport mobile (maxWidth: 420px, terpusat horizontal) saat dibuka di browser web.
+ * - Injeksi font Figtree otomatis pada runtime web untuk tipografi humanis otentik.
+ * - Mengintegrasikan AppHeader terpadu dengan dialog alih peran.
+ * - Menggunakan kanvas dinamis bertema (Light Warm Stone vs Dark Obsidian).
+ * - Memberikan padding horizontal 18px (spacing.gutter) untuk napas visual yang optimal.
  */
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import {
   StyleSheet,
-  View,
-  Text,
-  ScrollView,
   SafeAreaView,
+  ScrollView,
+  View,
   ViewStyle,
+  StyleProp,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useApp } from '@/context/AppContext';
+import { AppHeader } from '@/components/AppHeader';
+import { spacing } from '@/theme';
 
-/**
- * Interface properti untuk ScreenContainer
- */
 export interface ScreenContainerProps {
-  /** Judul utama halaman */
-  title: string;
-  /** Label badge kategori/modul */
-  badge: string;
-  /** Deskripsi singkat tujuan modul praktikum */
-  description: string;
-  /** URL referensi dokumentasi resmi yang dipelajari */
-  docUrl: string;
   /** Elemen anak (konten layar) */
   children: ReactNode;
-  /** Optional custom container style */
-  contentContainerStyle?: ViewStyle;
+  /** Menentukan apakah AppHeader terpadu ditampilkan di bagian atas (default: true) */
+  showHeader?: boolean;
+  /** Properti opsional untuk penyesuaian gaya kontainer scroll */
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  /** Properti opsional untuk penyesuaian gaya area aman */
+  style?: StyleProp<ViewStyle>;
+  /** Properti legacy opsional untuk kompatibilitas ke belakang */
+  title?: string;
+  badge?: string;
+  description?: string;
+  docUrl?: string;
 }
 
-/**
- * Komponen pembungkus layar standar
- */
 export const ScreenContainer: React.FC<ScreenContainerProps> = ({
-  title,
-  badge,
-  description,
-  docUrl,
   children,
+  showHeader = true,
   contentContainerStyle,
+  style,
 }) => {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header Modul */}
-        <View style={styles.headerCard}>
-          <View style={styles.badgeRow}>
-            <Text style={styles.badgeText}>{badge}</Text>
-          </View>
-          <Text style={styles.titleText}>{title}</Text>
-          <Text style={styles.descText}>{description}</Text>
-          <View style={styles.docBox}>
-            <Text style={styles.docLabel}>Sumber Dokumentasi:</Text>
-            <Text style={styles.docUrlText} numberOfLines={1}>
-              {docUrl}
-            </Text>
-          </View>
-        </View>
+  const { tema, modeTema } = useApp();
 
-        {/* Konten Halaman */}
-        {children}
-      </ScrollView>
+  // Injeksi Google Font Figtree pada runtime browser web agar identik dengan trydesign.html
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      if (!document.getElementById('figtree-font-link')) {
+        const link = document.createElement('link');
+        link.id = 'figtree-font-link';
+        link.rel = 'stylesheet';
+        link.href =
+          'https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap';
+        document.head.appendChild(link);
+      }
+
+      if (!document.getElementById('figtree-global-font-style')) {
+        const styleTag = document.createElement('style');
+        styleTag.id = 'figtree-global-font-style';
+        styleTag.innerHTML = `
+          *, *::before, *::after {
+            font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif !important;
+          }
+        `;
+        document.head.appendChild(styleTag);
+      }
+    }
+  }, []);
+
+  return (
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        { backgroundColor: tema.canvas },
+        style,
+      ]}
+    >
+      <StatusBar style={modeTema === 'dark' ? 'light' : 'dark'} />
+      <View style={styles.webCenteringOuter}>
+        <View style={styles.mobileShell}>
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Header terpadu (Avatar pengguna + nama + tombol alih peran) */}
+            {showHeader && <AppHeader />}
+
+            {/* Konten utama halaman */}
+            {children}
+          </ScrollView>
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -77,63 +105,22 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#090d16', // Dark background
+  },
+  webCenteringOuter: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  mobileShell: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 420,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.xs,
     paddingBottom: 40,
-  },
-  headerCard: {
-    backgroundColor: '#131b2e',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  badgeText: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  titleText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginBottom: 6,
-  },
-  descText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  docBox: {
-    backgroundColor: '#0a0f1d',
-    padding: 10,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#38bdf8',
-  },
-  docLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 2,
-    textTransform: 'uppercase',
-  },
-  docUrlText: {
-    fontSize: 12,
-    color: '#38bdf8',
-    fontWeight: '500',
+    gap: 14,
   },
 });

@@ -12,7 +12,9 @@ import {
   JadwalSesi,
   CatatanPresensi,
   StatusKehadiran,
+  ModeTema,
 } from '@/types';
+import { lightTheme, darkTheme } from '@/theme';
 import {
   DUMMY_ASISTEN,
   DUMMY_PRAKTIKAN,
@@ -38,6 +40,14 @@ const formatWaktuSekarang = (): string => {
 };
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
+  // State tema tampilan global: 'dark' (Opsi 2 Obsidian) | 'light' (Opsi 3 Warm Stone)
+  const [modeTema, setModeTema] = useState<ModeTema>('dark');
+  const tema = modeTema === 'dark' ? darkTheme : lightTheme;
+
+  const toggleModeTema = (): void => {
+    setModeTema((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   // State peran aktif dan identitas pengguna aktif
   const [peranAktif, setPeranAktif] = useState<PeranPengguna>('praktikan');
   const [penggunaAktif, setPenggunaAktif] = useState<Pengguna>(DUMMY_PRAKTIKAN[0]);
@@ -204,6 +214,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         cekSudahPresensi,
         ambilRiwayatPraktikan,
         ambilPresensiPerSesi,
+        modeTema,
+        tema,
+        toggleModeTema,
+        setModeTema,
       }}
     >
       {children}

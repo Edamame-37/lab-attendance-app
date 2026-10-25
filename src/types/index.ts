@@ -4,6 +4,10 @@
  * Semua model data didefinisikan secara baku agar dapat digunakan secara independen oleh Pemrogram 1, 2, dan 3.
  */
 
+import type { ModeTema, ThemeColors } from '@/theme';
+
+export type { ModeTema, ThemeColors };
+
 /**
  * Peran pengguna yang didukung dalam sistem
  */
@@ -95,4 +99,10 @@ export interface AppContextType {
 
   // Rekapitulasi Asisten (Programmer 3)
   ambilPresensiPerSesi: (sesiId: string) => CatatanPresensi[];
+
+  // Sistem Tema Tampilan (Light Mode Opsi 3 & Dark Mode Opsi 2)
+  modeTema: ModeTema;
+  tema: ThemeColors;
+  toggleModeTema: () => void;
+  setModeTema: (mode: ModeTema) => void;
 }
