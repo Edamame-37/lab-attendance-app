@@ -25,7 +25,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "dev": "node .web-dev/server.js",
+    "dev": "expo start --web",
     "start": "expo start",
     "start:dev": "expo start --dev-client",
     "android": "expo start --android",
