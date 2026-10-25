@@ -402,8 +402,8 @@ export default function PresensiScreen(): React.JSX.Element {
         <GroupedInsetList>
           {riwayatSaya.map((riwayat, index) => {
             const sesi = daftarSesi.find((s) => s.id === riwayat.sesiId);
-            const isHadir = riwayat.status === 'HADIR';
-            const isIzin = riwayat.status === 'IZIN';
+            const isHadir = riwayat.statusKehadiran === 'HADIR';
+            const isIzin = riwayat.statusKehadiran === 'IZIN';
             const badgeColor = isHadir
               ? tema.statusHadir
               : isIzin
@@ -431,7 +431,7 @@ export default function PresensiScreen(): React.JSX.Element {
                         { color: badgeColor },
                       ]}
                     >
-                      {riwayat.status}
+                      {riwayat.statusKehadiran}
                     </Text>
                   </View>
                 }
