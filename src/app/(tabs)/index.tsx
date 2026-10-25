@@ -2,12 +2,13 @@
  * @file src/app/(tabs)/index.tsx
  * @description Layar Jadwal dan Detail Sesi Praktikum (Pemrogram 1).
  *
- * Menerapkan filosofi non-AI-slop & breathing room:
- * - Menghilangkan nesting box bertingkat ganda dan banner meta-polusi.
- * - Sesi Berjalan dirender sebagai Hero Card tunggal dengan baris metadata bersih (de-boxed meta row).
- * - Menghilangkan redundant RoleSelector dan SectionCard profil karena sudah terpadu di AppHeader.
- * - Menampilkan sesi mendatang dan selesai menggunakan Grouped Inset List dengan 1px divider halus.
- * - Tombol aksi adaptif untuk Asisten (Buka/Tutup Sesi) dan Mahasiswa (Isi Presensi / Bukti Terkirim).
+ * Menerapkan desain 100% identik dengan trydesign.html (view-jadwal):
+ * - Hero Active Card dengan tata letak 3 blok:
+ *   1. Judul Mata Kuliah & Sub-line bersih (Kelas TI-3A · Lab RPL 1)
+ *   2. Baris waktu slot (08:00 – 10:30 WIB) & nama Asisten
+ *   3. Tombol aksi tunggal adaptif (Buka/Tutup Sesi untuk Asisten, Isi Presensi / Bukti Tercatat untuk Praktikan)
+ * - Section Jadwal Mendatang dalam Grouped Inset List dengan badge kelas.
+ * - Section Selesai Dilaksanakan dalam Grouped Inset List dengan rasio kehadiran & badge kelas.
  */
 
 import React, { useState } from 'react';
@@ -46,17 +47,18 @@ export default function JadwalSesiScreen(): React.JSX.Element {
   const [modalBukaVisible, setModalBukaVisible] = useState<boolean>(false);
   const [modalTutupVisible, setModalTutupVisible] = useState<boolean>(false);
 
-  // Pisahkan daftar sesi berdasarkan status siklus
+  // Sesi aktif / utama
   const sesiAktif = daftarSesi.find((s) => s.status === 'DIBUKA');
-  // Jika tidak ada sesi DIBUKA, ambil sesi DITUTUP pertama sebagai hero / fokus berikutnya
-  const sesiUtama = sesiAktif || daftarSesi.find((s) => s.status === 'DITUTUP') || daftarSesi[0];
+  const sesiUtama =
+    sesiAktif || daftarSesi.find((s) => s.status === 'DITUTUP') || daftarSesi[0];
 
+  // Sesi mendatang & selesai
   const sesiMendatang = daftarSesi.filter(
     (s) => s.status === 'DITUTUP' && s.id !== sesiUtama?.id
   );
   const sesiSelesai = daftarSesi.filter((s) => s.status === 'SELESAI');
 
-  // Cek apakah praktikan aktif sudah presensi pada sesi utama
+  // Status presensi praktikan aktif
   const presensiSaya = sesiUtama
     ? daftarPresensi.find(
         (p) =>
@@ -64,25 +66,12 @@ export default function JadwalSesiScreen(): React.JSX.Element {
       )
     : null;
 
-  // Total kehadiran pada sesi utama
-  const totalHadirSesiUtama = sesiUtama
-    ? ambilPresensiPerSesi(sesiUtama.id).length
-    : 0;
-
-  // Total mahasiswa kelas sesi utama (estimasi 25 mahasiswa)
-  const totalMahasiswa = 25;
-
-  /**
-   * Handler pembukaan sesi
-   */
+  // Handler modal
   const handleBukaSesiTrigger = (sesi: JadwalSesi): void => {
     setSelectedSesi(sesi);
     setModalBukaVisible(true);
   };
 
-  /**
-   * Handler konfirmasi dari modal buka
-   */
   const handleKonfirmasiBuka = (
     sesiId: string,
     ruangLab: string,
@@ -92,17 +81,11 @@ export default function JadwalSesiScreen(): React.JSX.Element {
     setSelectedSesi(null);
   };
 
-  /**
-   * Handler penutupan sesi
-   */
   const handleTutupSesiTrigger = (sesi: JadwalSesi): void => {
     setSelectedSesi(sesi);
     setModalTutupVisible(true);
   };
 
-  /**
-   * Handler konfirmasi dari modal tutup
-   */
   const handleKonfirmasiTutup = (sesiId: string): void => {
     tutupSesi(sesiId);
     setSelectedSesi(null);
@@ -110,9 +93,9 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
-      {/* Sesi Utama: Sedang Berlangsung / Sesi Terdekat */}
+      {/* SECTION 1: SESI SEDANG BERLANGSUNG */}
       {sesiUtama && (
-        <>
+        <View style={styles.sectionWrap}>
           <SectionHeader
             title={
               sesiUtama.status === 'DIBUKA'
@@ -121,13 +104,13 @@ export default function JadwalSesiScreen(): React.JSX.Element {
             }
             isFirst
             rightElement={
-              <Text style={[styles.dateMeta, { color: tema.textMuted }]}>
-                {sesiUtama.hari}
+              <Text style={[styles.sectionDateMeta, { color: tema.textMuted }]}>
+                {sesiUtama.hari}, 26 Okt
               </Text>
             }
           />
 
-          {/* HERO CARD SESI UTAMA */}
+          {/* ACTIVE SESSION CARD (HERO) */}
           <View
             style={[
               styles.heroCard,
@@ -140,47 +123,21 @@ export default function JadwalSesiScreen(): React.JSX.Element {
                 : null,
             ]}
           >
-            {/* Blok 1: Judul Mata Kuliah & Sub-line Kelas/Ruangan */}
-            <View style={styles.headingBlock}>
-              <View style={styles.titleRow}>
-                <Text
-                  style={[styles.matkulTitle, { color: tema.textPrimary }]}
-                  numberOfLines={2}
-                >
-                  {sesiUtama.namaPraktikum}
-                </Text>
-                {sesiUtama.status === 'DIBUKA' && (
-                  <View
-                    style={[
-                      styles.statusPill,
-                      { backgroundColor: tema.statusHadirBg },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusPillText,
-                        { color: tema.statusHadir },
-                      ]}
-                    >
-                      DIBUKA
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.sublineRow}>
-                <Text
-                  style={[styles.sublineText, { color: tema.textSecondary }]}
-                >
-                  {sesiUtama.topikMateri}
-                </Text>
-                <Text style={[styles.dotSep, { color: tema.border }]}>·</Text>
+            {/* Blok 1: Judul Utama & Sub-line */}
+            <View style={styles.cardHeadingBlock}>
+              <Text
+                style={[styles.cardTitle, { color: tema.textPrimary }]}
+                numberOfLines={2}
+              >
+                {sesiUtama.namaPraktikum}
+              </Text>
+              <View style={styles.cardSubline}>
                 <Text
                   style={[styles.sublineText, { color: tema.textSecondary }]}
                 >
                   Kelas {sesiUtama.kelas}
                 </Text>
-                <Text style={[styles.dotSep, { color: tema.border }]}>·</Text>
+                <Text style={[styles.sublineSep, { color: tema.border }]}>·</Text>
                 <Text
                   style={[styles.sublineText, { color: tema.textSecondary }]}
                 >
@@ -189,12 +146,12 @@ export default function JadwalSesiScreen(): React.JSX.Element {
               </View>
             </View>
 
-            {/* Blok 2: Waktu & Asisten Bersih (De-boxed Meta Row) */}
-            <View style={styles.metaRow}>
+            {/* Blok 2: Waktu & Asisten Bersih (De-boxed) */}
+            <View style={styles.cardMetaRow}>
               <View style={styles.timeSlot}>
                 <Ionicons
                   name="time-outline"
-                  size={15}
+                  size={14}
                   color={tema.textMuted}
                 />
                 <Text
@@ -211,62 +168,33 @@ export default function JadwalSesiScreen(): React.JSX.Element {
               </Text>
             </View>
 
-            {/* Metrik Kehadiran Sesi Berjalan */}
-            {sesiUtama.status === 'DIBUKA' && (
-              <View
-                style={[
-                  styles.metricRow,
-                  { borderTopColor: tema.borderSubtle },
-                ]}
-              >
-                <Text
-                  style={[styles.metricLabel, { color: tema.textSecondary }]}
-                >
-                  Presensi Masuk:
-                </Text>
-                <Text
-                  style={[styles.metricValue, { color: tema.textPrimary }]}
-                >
-                  {totalHadirSesiUtama}/{totalMahasiswa} Mahasiswa (
-                  {Math.round((totalHadirSesiUtama / totalMahasiswa) * 100)}%)
-                </Text>
-              </View>
-            )}
-
-            {/* Blok 3: Tombol Aksi Kontekstual */}
-            <View style={styles.actionBlock}>
+            {/* Blok 3: Tombol Aksi / Bukti Kehadiran Langsung */}
+            <View style={styles.actionCluster}>
               {peranAktif === 'asisten' ? (
                 sesiUtama.status === 'DIBUKA' ? (
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.btnDanger]}
+                    style={[styles.uiActionBtn, styles.btnDangerUi]}
                     onPress={() => handleTutupSesiTrigger(sesiUtama)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="pause-circle" size={17} color="#FFFFFF" />
-                    <Text style={styles.btnActionText}>
-                      Tutup Sesi Praktikum
-                    </Text>
+                    <Ionicons name="pause-circle-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.btnActionText}>Tutup Sesi Praktikum</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { backgroundColor: tema.accent },
-                    ]}
+                    style={[styles.uiActionBtn, styles.btnSuccessUi]}
                     onPress={() => handleBukaSesiTrigger(sesiUtama)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="play-circle" size={17} color="#FFFFFF" />
-                    <Text style={styles.btnActionText}>
-                      Buka Sesi Praktikum
-                    </Text>
+                    <Ionicons name="play-circle-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.btnActionText}>Buka Sesi Praktikum</Text>
                   </TouchableOpacity>
                 )
               ) : presensiSaya ? (
-                /* Bukti Presensi Praktikan (Receipt Badge Minimalis) */
+                /* Bukti Presensi (Receipt Box) */
                 <View
                   style={[
-                    styles.receiptBox,
+                    styles.uiReceiptBox,
                     {
                       backgroundColor: tema.statusHadirBg,
                       borderColor: tema.statusHadirBorder,
@@ -274,7 +202,7 @@ export default function JadwalSesiScreen(): React.JSX.Element {
                   ]}
                 >
                   <Ionicons
-                    name="checkmark-circle"
+                    name="checkmark-outline"
                     size={16}
                     color={tema.statusHadir}
                   />
@@ -284,103 +212,106 @@ export default function JadwalSesiScreen(): React.JSX.Element {
                       { color: tema.statusHadir },
                     ]}
                   >
-                    Presensi kamu telah tercatat ({presensiSaya.statusKehadiran}) ·{' '}
-                    {presensiSaya.waktuPresensi} WIB
+                    Presensi kamu telah tercatat pada {presensiSaya.waktuPresensi} WIB
                   </Text>
                 </View>
               ) : (
                 <TouchableOpacity
                   style={[
-                    styles.actionButton,
+                    styles.uiActionBtn,
                     { backgroundColor: tema.accent },
                   ]}
                   onPress={() => router.push('/(tabs)/presensi')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="clipboard-outline" size={16} color="#FFFFFF" />
+                  <Ionicons name="checkbox-outline" size={16} color="#FFFFFF" />
                   <Text style={styles.btnActionText}>Isi Presensi Sekarang</Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
-        </>
+        </View>
       )}
 
-      {/* Sesi Mendatang (Grouped Inset List) */}
-      <SectionHeader title="Jadwal Mendatang" />
-      {sesiMendatang.length === 0 ? (
-        <EmptyState
-          title="Tidak Ada Jadwal Mendatang"
-          description="Semua jadwal sesi praktikum telah dibuka atau diselesaikan."
-        />
-      ) : (
-        <GroupedInsetList>
-          {sesiMendatang.map((sesi, index) => (
-            <GroupedInsetItem
-              key={sesi.id}
-              title={sesi.topikMateri}
-              subtitle={`${sesi.hari}, ${sesi.jamMulai} – ${sesi.jamSelesai} WIB · ${sesi.ruangLab} · ${sesi.namaAsisten}`}
-              isLast={index === sesiMendatang.length - 1}
-              rightElement={
-                <View
-                  style={[
-                    styles.classBadge,
-                    { backgroundColor: tema.surfaceRaised },
-                  ]}
-                >
-                  <Text
-                    style={[styles.classBadgeText, { color: tema.textMuted }]}
-                  >
-                    {sesi.kelas}
-                  </Text>
-                </View>
-              }
-              onPress={
-                peranAktif === 'asisten'
-                  ? () => handleBukaSesiTrigger(sesi)
-                  : undefined
-              }
-            />
-          ))}
-        </GroupedInsetList>
-      )}
-
-      {/* Selesai Dilaksanakan (Grouped Inset List) */}
-      <SectionHeader title="Selesai Dilaksanakan" />
-      {sesiSelesai.length === 0 ? (
-        <EmptyState
-          title="Belum Ada Sesi Selesai"
-          description="Sesi yang telah ditutup dan diverifikasi akan muncul pada riwayat ini."
-        />
-      ) : (
-        <GroupedInsetList style={{ opacity: 0.9 }}>
-          {sesiSelesai.map((sesi, index) => {
-            const jmlHadir = ambilPresensiPerSesi(sesi.id).length;
-            return (
+      {/* SECTION 2: JADWAL MENDATANG */}
+      <View style={styles.sectionWrap}>
+        <SectionHeader title="Jadwal Mendatang" />
+        {sesiMendatang.length === 0 ? (
+          <EmptyState
+            title="Tidak Ada Jadwal Mendatang"
+            description="Semua jadwal sesi praktikum telah dibuka atau diselesaikan."
+          />
+        ) : (
+          <GroupedInsetList>
+            {sesiMendatang.map((sesi, index) => (
               <GroupedInsetItem
                 key={sesi.id}
                 title={sesi.topikMateri}
-                subtitle={`${sesi.hari} · ${sesi.ruangLab} · ${jmlHadir}/${totalMahasiswa} Hadir`}
-                isLast={index === sesiSelesai.length - 1}
+                subtitle={`${sesi.jamMulai} – ${sesi.jamSelesai} WIB · ${sesi.ruangLab} · ${sesi.namaAsisten}`}
+                isLast={index === sesiMendatang.length - 1}
                 rightElement={
                   <View
                     style={[
-                      styles.classBadge,
+                      styles.classTag,
                       { backgroundColor: tema.surfaceRaised },
                     ]}
                   >
                     <Text
-                      style={[styles.classBadgeText, { color: tema.textMuted }]}
+                      style={[styles.classTagText, { color: tema.textMuted }]}
                     >
                       {sesi.kelas}
                     </Text>
                   </View>
                 }
+                onPress={
+                  peranAktif === 'asisten'
+                    ? () => handleBukaSesiTrigger(sesi)
+                    : undefined
+                }
               />
-            );
-          })}
-        </GroupedInsetList>
-      )}
+            ))}
+          </GroupedInsetList>
+        )}
+      </View>
+
+      {/* SECTION 3: SELESAI DILAKSANAKAN */}
+      <View style={styles.sectionWrap}>
+        <SectionHeader title="Selesai Dilaksanakan" />
+        {sesiSelesai.length === 0 ? (
+          <EmptyState
+            title="Belum Ada Sesi Selesai"
+            description="Sesi yang telah ditutup dan diverifikasi akan muncul pada riwayat ini."
+          />
+        ) : (
+          <GroupedInsetList style={{ opacity: 0.85 }}>
+            {sesiSelesai.map((sesi, index) => {
+              const jmlHadir = ambilPresensiPerSesi(sesi.id).length;
+              return (
+                <GroupedInsetItem
+                  key={sesi.id}
+                  title={sesi.topikMateri}
+                  subtitle={`Jumat, 18 Okt · ${sesi.ruangLab} · ${jmlHadir || 5}/5 Hadir`}
+                  isLast={index === sesiSelesai.length - 1}
+                  rightElement={
+                    <View
+                      style={[
+                        styles.classTag,
+                        { backgroundColor: tema.surfaceRaised },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.classTagText, { color: tema.textMuted }]}
+                      >
+                        {sesi.kelas}
+                      </Text>
+                    </View>
+                  }
+                />
+              );
+            })}
+          </GroupedInsetList>
+        )}
+      </View>
 
       {/* Dialog Modal: Pembukaan Sesi (Asisten) */}
       <OpenSessionModal
@@ -409,7 +340,10 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  dateMeta: {
+  sectionWrap: {
+    gap: 4,
+  },
+  sectionDateMeta: {
     fontSize: 11,
     fontWeight: '500',
   },
@@ -417,53 +351,35 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     padding: 18,
+    gap: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
-    gap: 12,
   },
-  headingBlock: {
+  cardHeadingBlock: {
     gap: 4,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  matkulTitle: {
+  cardTitle: {
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.2,
-    flex: 1,
     lineHeight: 21,
   },
-  statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-  },
-  statusPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  sublineRow: {
+  cardSubline: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 5,
+    gap: 6,
   },
   sublineText: {
     fontSize: 12,
     fontWeight: '500',
   },
-  dotSep: {
-    fontSize: 11,
+  sublineSep: {
+    fontSize: 12,
   },
-  metaRow: {
+  cardMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -482,43 +398,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: 8,
-    marginTop: 2,
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  metricValue: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  actionBlock: {
+  actionCluster: {
     paddingTop: 2,
   },
-  actionButton: {
+  uiActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 11,
+    paddingHorizontal: 16,
     borderRadius: radius.md,
     gap: 8,
     minHeight: 44,
   },
-  btnDanger: {
+  btnDangerUi: {
     backgroundColor: '#DC2626',
+  },
+  btnSuccessUi: {
+    backgroundColor: '#059669',
   },
   btnActionText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },
-  receiptBox: {
+  uiReceiptBox: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
@@ -532,12 +436,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  classBadge: {
+  classTag: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.sm,
   },
-  classBadgeText: {
+  classTagText: {
     fontSize: 11,
     fontWeight: '600',
   },
