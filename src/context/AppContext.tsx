@@ -40,8 +40,9 @@ const formatWaktuSekarang = (): string => {
 };
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
-  // State tema tampilan global: 'dark' (Opsi 2 Obsidian) | 'light' (Opsi 3 Warm Stone)
-  const [modeTema, setModeTema] = useState<ModeTema>('dark');
+  // State tema tampilan global: 'light' (Opsi 3 Warm Academic Stone) | 'dark' (Opsi 2 Obsidian Dark)
+  // Tema dasar aplikasi ditetapkan secara default ke Mode Terang ('light')
+  const [modeTema, setModeTema] = useState<ModeTema>('light');
   const tema = modeTema === 'dark' ? darkTheme : lightTheme;
 
   const toggleModeTema = (): void => {
