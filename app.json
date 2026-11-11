@@ -33,7 +33,7 @@
       "typedRoutes": true
     },
     "updates": {
-      "url": "https://u.expo.dev/363aa59f-1fd4-4acc-9b6d-906db7aa8d09"
+      "url": "https://u.expo.dev/a937d8b0-1a28-45c4-8b57-25484df719d1"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -41,8 +41,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "363aa59f-1fd4-4acc-9b6d-906db7aa8d09"
+        "projectId": "a937d8b0-1a28-45c4-8b57-25484df719d1"
       }
-    }
+    },
+    "owner": "edamame-37s-team"
   }
 }

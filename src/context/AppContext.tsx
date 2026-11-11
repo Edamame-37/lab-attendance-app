@@ -4,7 +4,8 @@
  * Menyediakan state bersama dan handler aksi untuk peran asisten dan praktikan.
  */
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 import {
   AppContextType,
   PeranPengguna,
@@ -52,6 +53,22 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // State peran aktif dan identitas pengguna aktif
   const [peranAktif, setPeranAktif] = useState<PeranPengguna>('praktikan');
   const [penggunaAktif, setPenggunaAktif] = useState<Pengguna>(DUMMY_PRAKTIKAN[0]);
+
+  // Sinkronisasi data pengguna aktif dari AuthContext (Firebase Auth)
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (auth?.userProfile) {
+      setPenggunaAktif({
+        id: auth.userProfile.uid,
+        nama: auth.userProfile.nama,
+        nomorInduk: auth.userProfile.nomorInduk,
+        kelas: auth.userProfile.kelas || undefined,
+        peran: auth.userProfile.role,
+      });
+      setPeranAktif(auth.userProfile.role);
+    }
+  }, [auth?.userProfile]);
 
   // State daftar jadwal sesi praktikum
   const [daftarSesi, setDaftarSesi] = useState<JadwalSesi[]>(DUMMY_SESI);

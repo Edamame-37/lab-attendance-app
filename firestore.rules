@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Helper Functions untuk Verifikasi Identitas dan Peran
+     */
+
+    // Memeriksa apakah request berasal dari pengguna yang terautentikasi
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Memeriksa apakah user yang melakukan request adalah pemilik dokumen
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Mengambil data profil user dari koleksi users untuk memeriksa peran (role)
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Memeriksa apakah pengguna memiliki peran sebagai Asisten Laboratorium
+    function isAsisten() {
+      return isAuthenticated() && (
+        getUserData().role == 'asisten' ||
+        request.auth.token.role == 'asisten'
+      );
+    }
+
+    /**
+     * SRS-FT-01 & SRS-FT-08: Koleksi 'users'
+     * Menyimpan profil pengguna (nama, NIM/NIP, email, role, kelas).
+     */
+    match /users/{userId} {
+      // Seluruh user terautentikasi dapat membaca profil (asisten perlu melihat profil praktikan)
+      allow read: if isAuthenticated();
+
+      // Pengguna hanya dapat membuat dokumen profil dengan ID yang cocok dengan UID auth miliknya
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+
+      // Pengguna hanya dapat memperbarui profil miliknya sendiri (tidak dapat mengubah role secara sepihak jika dicegah)
+      allow update: if isOwner(userId);
+
+      // Penghapusan dokumen profil dilarang dari sisi client
+      allow delete: if false;
+    }
+
+    /**
+     * SRS-FT-02 & SRS-FT-04: Koleksi 'sessions' (Jadwal & Sesi Praktikum)
+     * Dikelola penuh oleh Asisten; Praktikan hanya memiliki hak baca.
+     */
+    match /sessions/{sessionId} {
+      // Seluruh pengguna terautentikasi dapat membaca data jadwal sesi
+      allow read: if isAuthenticated();
+
+      // Hanya Asisten yang berhak membuka, menutup, mengedit, atau menghapus sesi
+      allow create, update, delete: if isAsisten();
+    }
+
+    /**
+     * SRS-FT-03 & SRS-FT-04: Koleksi 'attendances' (Catatan Presensi Praktikan)
+     * Praktikan hanya dapat mencatat untuk dirinya sendiri. Asisten dapat membaca dan mengelola seluruh presensi.
+     */
+    match /attendances/{attendanceId} {
+      // Praktikan hanya dapat membaca presensi miliknya sendiri; Asisten dapat membaca seluruh data presensi
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.praktikanId == request.auth.uid ||
+        isAsisten()
+      );
+
+      // Praktikan hanya dapat membuat catatan presensi dengan identitas miliknya sendiri
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        request.resource.data.praktikanId == request.auth.uid
+      );
+
+      // Hanya Asisten yang dapat mengubah atau menghapus data presensi
+      allow update, delete: if isAsisten();
+    }
+
+    /**
+     * SRS-FT-05, SRS-FT-06 & SRS-FT-07: Koleksi 'leave_requests' (Pengajuan Izin)
+     * Praktikan membuat pengajuan izin; Asisten memoderasi persetujuan/penolakan.
+     */
+    match /leave_requests/{requestId} {
+      // Praktikan membaca izin miliknya; Asisten membaca seluruh permohonan izin
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.praktikanId == request.auth.uid ||
+        isAsisten()
+      );
+
+      // Praktikan hanya dapat mengajukan izin atas namanya sendiri dengan status awal 'pending'
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        request.resource.data.praktikanId == request.auth.uid
+      );
+
+      // Asisten berhak mengubah status pengajuan izin (approved / rejected)
+      allow update: if isAsisten() || (
+        isAuthenticated() &&
+        (resource.data.studentId == request.auth.uid || resource.data.praktikanId == request.auth.uid) &&
+        resource.data.status == 'pending'
+      );
+
+      // Hanya asisten yang dapat menghapus pengajuan izin
+      allow delete: if isAsisten();
+    }
+  }
+}
+
