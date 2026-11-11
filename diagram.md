@@ -1,204 +1,75 @@
-# Diagram Alur Kerja Sistem (Workflow Diagrams) — Sprint 2
-## Presensi Praktikum Laboratorium dengan Firebase & AI
+# Diagram Workflow Terpadu Sistem Presensi Praktikum (Sprint 2)
 
-Dokumen ini memuat diagram alur kerja (*workflow diagrams*) lengkap untuk sistem Presensi Praktikum Laboratorium berbasis **Cloud Firestore**, **Firebase Authentication**, dan **REST API Model AI**, dengan fokus khusus pada modul **Programmer Farrel** (SRS-FT-02, SRS-FT-03, SRS-FT-04) serta integrasi alur keseluruhan.
-
----
-
-## 1. Alur Utama Terintegrasi Sistem (End-to-End System Workflow)
-
-Diagram berikut memetakan dua skenario inti yang diwajibkan pada Sprint 2:
-1. **Alur Presensi Terintegrasi Real-Time (Asisten & Praktikan)**.
-2. **Alur Pengajuan Izin & Klasifikasi AI (Praktikan, Model AI, & Asisten)**.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Asisten as Asisten Lab
-    participant AppAsisten as Aplikasi (Layar Asisten)
-    participant Firestore as Cloud Firestore
-    participant AppPraktikan as Aplikasi (Layar Praktikan)
-    actor Praktikan as Praktikan
-    participant AI as Model AI REST API
-
-    %% SKENARIO 1: SIKLUS SESI & PRESENSI REAL-TIME
-    rect rgb(235, 248, 245)
-    Note over Asisten, Praktikan: SKENARIO 1: SIKLUS SESI & PRESENSI REAL-TIME (Farrel: SRS-02, SRS-03, SRS-04)
-    Asisten->>AppAsisten: Buka Sesi Praktikum (Pilih Ruang & Catatan)
-    AppAsisten->>Firestore: updateDoc(sessions, { status: "open", waktuBuka: serverTimestamp() })
-    Firestore-->>AppPraktikan: onSnapshot() realtime event (Sesi berstatus "open")
-    AppPraktikan->>Praktikan: Tampilkan sesi aktif di daftar "Sesi Terbuka"
-    
-    Praktikan->>AppPraktikan: Pilih status (HADIR) & klik "Kirim Presensi"
-    AppPraktikan->>Firestore: checkExistingAttendance(sessionId, studentId)
-    alt Praktikan belum presensi
-        AppPraktikan->>Firestore: setDoc(attendances, { sessionId_studentId, status: "HADIR", timestamp })
-        Firestore-->>AppPraktikan: Sukses disimpan (Idempotent Doc)
-        AppPraktikan->>Praktikan: Tampilkan bukti kehadiran & kunci formulir (Anti-Duplikasi)
-        Firestore-->>AppAsisten: onSnapshot() realtime event (Daftar kehadiran bertambah)
-        AppAsisten->>Asisten: Tampilkan nama praktikan & metrik live pada AttendanceRecapCard
-    else Praktikan sudah presensi sebelumnya
-        AppPraktikan->>Praktikan: Tolak submit & tampilkan pesan: "Hanya diperbolehkan 1x per sesi"
-    end
-
-    Asisten->>AppAsisten: Tutup Sesi Praktikum
-    AppAsisten->>Firestore: updateDoc(sessions, { status: "closed", waktuTutup: serverTimestamp() })
-    Firestore-->>AppPraktikan: onSnapshot() realtime event (Sesi ditutup & presensi terkunci)
-    end
-
-    %% SKENARIO 2: PENGAJUAN IZIN DENGAN BANTUAN AI
-    rect rgb(254, 243, 199)
-    Note over Asisten, AI: SKENARIO 2: PENGAJUAN IZIN DENGAN PREDIKSI AI (Syair: SRS-05, SRS-06, SRS-07)
-    Praktikan->>AppPraktikan: Isi form izin ketidakhadiran & tulis alasan
-    AppPraktikan->>AI: POST /predict-reason { text: alasanIzin }
-    AI-->>AppPraktikan: Respons prediksi kategori (misal: "Sakit", "Acara Keluarga")
-    AppPraktikan->>Firestore: addDoc(leave_requests, { studentId, alasan, kategoriAI, status: "pending" })
-    
-    Firestore-->>AppAsisten: onSnapshot() realtime event (Pengajuan izin baru)
-    AppAsisten->>Asisten: Tampilkan izin, alasan asli, & rekomendasi kategori AI
-    Note over Asisten: Keputusan manual di tangan Asisten (AI tidak memutuskan)
-    Asisten->>AppAsisten: Berikan keputusan (Terima / Tolak)
-    AppAsisten->>Firestore: updateDoc(leave_requests, { status: "approved" | "rejected", reviewedBy })
-    Firestore-->>AppPraktikan: onSnapshot() realtime event (Status izin ter-update live)
-    AppPraktikan->>Praktikan: Tampilkan status keputusan (Diterima / Ditolak)
-    end
-```
-
----
-
-## 2. Alur Pengelolaan Sesi Praktikum — Sisi Asisten (SRS-FT-02 & SRS-FT-04)
-
-Diagram alir logika (*flowchart*) bagi Asisten untuk operasi CRUD sesi, pembukaan/penutupan kegiatan, dan pemantauan live recap.
+Salin seluruh blok kode Mermaid di bawah ini dan tempelkan langsung ke [Mermaid Live Editor](https://mermaid.live).
 
 ```mermaid
 flowchart TD
-    Start([Asisten Membuka SessionManageScreen]) --> LoadSessions[useAttendance: onSnapshot mendengarkan koleksi sessions]
-    LoadSessions --> DisplayList[Tampilkan Semua Sesi Praktikum]
+    %% PENETAPAN SUBGRAPH PERAN & SISTEM
+    subgraph ASISTEN ["🧑‍🏫 Alur Asisten Lab (Farrel & Syair)"]
+        A1["1. Asisten Login & Akses Dashboard"] --> A2["2. Buka Menu Kelola Sesi (SessionManageScreen)"]
+        A2 --> A3["3. Tambah / Pilih Sesi Praktikum"]
+        A3 --> A4["4. Buka Sesi Praktikum (Status: 'open')"]
+        A4 --> A5["5. Monitor Presensi Real-Time (AttendanceRecapCard)"]
+        A5 --> A6["6. Terima Notifikasi Live Kehadiran Praktikan"]
+        A6 --> A7["7. Tutup Sesi Praktikum (Status: 'closed')"]
+        
+        %% Alur Review Izin
+        A5 -.-> A8["8. Buka Layar Verifikasi Izin (LeaveReviewScreen)"]
+        A8 --> A9["9. Periksa Alasan Praktikan + Prediksi Kategori AI"]
+        A9 --> A10{"10. Keputusan Asisten"}
+        A10 -->|"Disetujui"| A11["Set Status: 'approved'"]
+        A10 -->|"Ditolak"| A12["Set Status: 'rejected'"]
+    end
 
-    %% Aksi CRUD & Kontrol
-    DisplayList --> ActionChoice{Pilih Tindakan Asisten}
+    subgraph FIRESTORE ["🔥 Cloud Firestore & Real-Time Sync (SRS-02, 03, 04)"]
+        FS_SESSIONS[("📁 Koleksi: sessions<br/>• status: open/closed<br/>• waktuBuka, waktuTutup")]
+        FS_ATTENDANCES[("📁 Koleksi: attendances<br/>• ID: sessionId_studentId<br/>• statusKehadiran: HADIR/IZIN/SAKIT")]
+        FS_LEAVE[("📁 Koleksi: leave_requests<br/>• alasan, kategoriAI<br/>• status: pending/approved/rejected")]
+    end
 
-    %% Buat Sesi
-    ActionChoice -->|Tambah Sesi| FormModal[Buka Modal Tambah Sesi]
-    FormModal --> InputData[Isi Nama Praktikum, Topik, Kelas, Ruang, Jam]
-    InputData --> ValidateForm{Apakah field wajib terisi?}
-    ValidateForm -->|Tidak| AlertInvalid[Munculkan Alert Validasi Gagal] --> FormModal
-    ValidateForm -->|Ya| CallCreate[firestoreService.createSession]
-    CallCreate --> FirestoreSessions[(Firestore: sessions)]
-    FirestoreSessions --> RealtimeUpdate[onSnapshot otomatis update UI]
+    subgraph PRAKTIKAN ["👨‍🎓 Alur Praktikan / Mahasiswa (Farrel & Syair)"]
+        P1["1. Praktikan Login ke Aplikasi"] --> P2["2. Buka Menu Presensi (AttendanceScanScreen)"]
+        P2 --> P3{"3. Apakah Ada Sesi Berstatus 'open'?"}
+        P3 -->|"Tidak Ada"| P4["Tampilkan Empty State: Belum Ada Sesi Dibuka"]
+        P3 -->|"Ada Sesi Dibuka"| P5["Pilih Sesi Praktikum yang Diikuti"]
+        
+        P5 --> P6{"4. Cek Riwayat: Sudah Presensi di Sesi Ini?"}
+        P6 -->|"Sudah Pernah Presensi"| P7["KUNCI FORMULIR: Tolak Submit & Tampilkan Bukti Kehadiran (Anti-Duplikasi 1x)"]
+        P6 -->|"Belum Presensi"| P8["5. Isi Form: Pilih Status Hadir & Catatan"]
+        P8 --> P9["6. Submit Presensi ke Firestore"]
+        
+        %% Alur Pengajuan Izin
+        P1 -.-> P10["7. Praktikan Berhalangan Hadir: Buka LeaveRequestScreen"]
+        P10 --> P11["8. Tulis Alasan Ketidakhadiran & Ajukan Izin"]
+        P11 --> P12["9. Pantau Status Izin di LeaveStatusScreen (Pending/Approved/Rejected)"]
+    end
 
-    %% Buka Sesi
-    ActionChoice -->|Buka Sesi| OpenModal[Buka Modal Buka Sesi & Catatan]
-    OpenModal --> CallOpen[firestoreService.openSession]
-    CallOpen --> SetOpenStatus[Status sesi diubah: open / DIBUKA]
-    SetOpenStatus --> FirestoreSessions
+    subgraph AI_SERVICE ["🤖 REST API Model AI Pengajar (SRS-06)"]
+        AI_MODEL["Model NLP Klasifikasi Teks Alasan<br/>(Prediksi: Sakit, Urusan Keluarga, Dispensasi, dll)"]
+    end
 
-    %% Tutup Sesi
-    ActionChoice -->|Tutup Sesi| ConfirmClose[Dialog Konfirmasi Penutupan]
-    ConfirmClose --> CallClose[firestoreService.closeSession]
-    CallClose --> SetCloseStatus[Status sesi diubah: closed / SELESAI]
-    SetCloseStatus --> FirestoreSessions
+    %% HUBUNGAN & DATA FLOW ASISTEN KE FIRESTORE
+    A4 -->|"updateDoc(status: 'open')"| FS_SESSIONS
+    A7 -->|"updateDoc(status: 'closed')"| FS_SESSIONS
+    FS_ATTENDANCES ==>|"onSnapshot() Live Stream Data Kehadiran"| A5
+    A11 -->|"updateDoc(status: 'approved')"| FS_LEAVE
+    A12 -->|"updateDoc(status: 'rejected')"| FS_LEAVE
 
-    %% Hapus Sesi
-    ActionChoice -->|Hapus Sesi| ConfirmDelete[Dialog Konfirmasi Hapus]
-    ConfirmDelete --> CallDelete[firestoreService.deleteSession]
-    CallDelete --> FirestoreSessions
+    %% HUBUNGAN & DATA FLOW PRAKTIKAN KE FIRESTORE
+    FS_SESSIONS ==>|"onSnapshot() Live Deteksi Sesi Aktif"| P3
+    P9 -->|"setDoc(sessionId_studentId)"| FS_ATTENDANCES
+    FS_ATTENDANCES ==>|"Konfirmasi Idempotent Saved"| P7
 
-    %% Live Recap
-    RealtimeUpdate --> ListenAttendances[onSnapshot mendengarkan koleksi attendances pada sesi aktif]
-    ListenAttendances --> UpdateRecapCard["Update AttendanceRecapCard (Live Badge, Metrik Hadir/Izin/Sakit, & Daftar Masuk)"]
-```
+    %% HUBUNGAN PENGAJUAN IZIN KE AI & FIRESTORE
+    P11 -->|"POST /predict-reason { teksAlasan }"| AI_MODEL
+    AI_MODEL -->|"Respons Prediksi Kategori"| P11
+    P11 -->|"addDoc(kategoriAI, status: 'pending')"| FS_LEAVE
+    FS_LEAVE ==>|"onSnapshot() Review List"| A8
+    FS_LEAVE ==>|"onSnapshot() Live Status Keputusan"| P12
 
----
-
-## 3. Alur Presensi Terintegrasi & Validasi 1x — Sisi Praktikan (SRS-FT-03)
-
-Diagram alir logika (*flowchart*) bagi Praktikan ketika melakukan presensi pada sesi yang sedang dibuka dengan proteksi anti-duplikasi.
-
-```mermaid
-flowchart TD
-    StartPraktikan([Praktikan Membuka AttendanceScanScreen]) --> ListenActive[useAttendance: onSnapshot mendengarkan sesi berstatus open]
-    ListenActive --> CheckOpenSession{Apakah ada sesi yang dibuka?}
-
-    CheckOpenSession -->|Tidak Ada| ShowEmpty["Tampilkan Empty State: Tidak Ada Sesi Dibuka (Menunggu Asisten)"]
-    
-    CheckOpenSession -->|Ada Sesi Terbuka| SelectSession[Pilih Sesi Praktikum yang Diikuti]
-    SelectSession --> CheckExisting["checkExistingAttendance: Cek apakah studentId sudah ada di attendances pada sesi ini"]
-
-    CheckExisting -->|Sudah Pernah Presensi| LockForm["Tampilkan Banner: Anda Telah Mengisi Presensi ✓ (Kunci Form & Cegah Duplikasi)"]
-
-    CheckExisting -->|Belum Presensi| ShowForm[Buka Form Presensi: Pilih Status Hadir/Izin/Sakit & Catatan]
-    ShowForm --> SubmitClick[Praktikan Klik Tombol 'Kirim Presensi Sekarang']
-    
-    SubmitClick --> Validating[Validasi ulang status sesi & data mahasiswa]
-    Validating --> SetDocFirestore["setDoc(attendances, sessionId_studentId, payload)"]
-    SetDocFirestore --> WriteSuccess{Penyimpanan Berhasil?}
-    
-    WriteSuccess -->|Gagal/Error| ShowErrorAlert[Tampilkan Notifikasi Error Koneksi / Firestore]
-    WriteSuccess -->|Sukses| ShowSuccess[Tampilkan Alert Sukses & Update State Real-time]
-    ShowSuccess --> LockForm
-```
-
----
-
-## 4. Arsitektur Relasi Koleksi Cloud Firestore (Sprint 2)
-
-Diagram struktur data dan keterhubungan dokumen pada Cloud Firestore:
-
-```mermaid
-erDiagram
-    USERS ||--o{ ATTENDANCES : "melakukan"
-    USERS ||--o{ SESSIONS : "mengelola (asisten)"
-    USERS ||--o{ LEAVE_REQUESTS : "mengajukan (praktikan)"
-    SESSIONS ||--o{ ATTENDANCES : "memiliki riwayat"
-    SESSIONS ||--o{ LEAVE_REQUESTS : "terkait pengajuan"
-
-    USERS {
-        string uid PK "request.auth.uid"
-        string email "Email akun"
-        string nama "Nama lengkap"
-        string nomorInduk "NIM atau NIP/ID Asisten"
-        string role "praktikan | asisten"
-        string kelas "Kelas praktikum (opsional)"
-    }
-
-    SESSIONS {
-        string id PK "Doc ID otomatis"
-        string namaPraktikum "Nama mata kuliah praktikum"
-        string topikMateri "Topik / modul praktikum"
-        string kelas "Kelas peserta (misal TI-3A)"
-        string ruangLab "Ruangan laboratorium"
-        string status "open | closed"
-        string statusSesi "DIBUKA | DITUTUP | SELESAI"
-        string asistenId FK "UID asisten pembuat"
-        string namaAsisten "Nama asisten pengampu"
-        timestamp waktuBuka "Waktu sesi dibuka"
-        timestamp waktuTutup "Waktu sesi ditutup"
-    }
-
-    ATTENDANCES {
-        string id PK "Deterministic ID: sessionId_studentId"
-        string sessionId FK "ID sesi praktikum"
-        string studentId FK "UID mahasiswa praktikan"
-        string studentName "Nama mahasiswa"
-        string studentNim "NIM mahasiswa"
-        string studentClass "Kelas mahasiswa"
-        string statusKehadiran "HADIR | IZIN | SAKIT"
-        string catatan "Keterangan tambahan"
-        string waktuPresensi "Waktu pencatatan (WIB)"
-        timestamp timestamp "Server timestamp"
-    }
-
-    LEAVE_REQUESTS {
-        string id PK "Doc ID otomatis"
-        string sessionId FK "ID sesi terkait"
-        string studentId FK "UID mahasiswa praktikan"
-        string studentName "Nama mahasiswa"
-        string alasan "Teks alasan izin asli"
-        string kategoriAI "Hasil prediksi REST API AI"
-        string status "pending | approved | rejected"
-        string reviewedBy FK "UID asisten pemeriksa"
-        timestamp createdAt "Waktu pengajuan"
-        timestamp reviewedAt "Waktu verifikasi"
-    }
+    %% STYLING TAMPILAN MERMAID
+    style ASISTEN fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E3A8A
+    style FIRESTORE fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F
+    style PRAKTIKAN fill:#ECFDF5,stroke:#10B981,stroke-width:2px,color:#064E3B
+    style AI_SERVICE fill:#F5F3FF,stroke:#8B5CF6,stroke-width:2px,color:#4C1D95
 ```
