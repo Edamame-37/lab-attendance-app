@@ -48,3 +48,4 @@ export const AuthContext: React.Context<AuthContextType | null>;
 export const AuthProvider: React.FC<{ children: React.ReactNode }>;
 export function useAuth(): AuthContextType;
 export default AuthContext;
+

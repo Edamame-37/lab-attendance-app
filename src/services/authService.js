@@ -192,3 +192,4 @@ export const updateUserProfile = async (uid, updateData) => {
     updatedAt: serverTimestamp(),
   });
 };
+
