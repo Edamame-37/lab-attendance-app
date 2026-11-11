@@ -30,25 +30,43 @@ export const useAttendance = (sessionId = '', studentId = '') => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refresh = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setRefreshKey((prev) => prev + 1);
+  }, []);
 
   // 1. Subscribe ke seluruh sesi praktikum secara real-time
   useEffect(() => {
     setLoading(true);
-    const unsubscribeSessions = subscribeToSessions(
-      (data) => {
-        setSessions(data);
-        setLoading(false);
-      },
-      (err) => {
-        setError(err.message || 'Gagal memuat sesi real-time');
-        setLoading(false);
-      }
-    );
+    setError(null);
+    let unsubscribeSessions = () => {};
+
+    try {
+      unsubscribeSessions = subscribeToSessions(
+        (data) => {
+          setSessions(data);
+          setLoading(false);
+          setError(null);
+        },
+        (err) => {
+          setError(err.message || 'Gagal memuat sesi real-time dari Firestore');
+          setLoading(false);
+        }
+      );
+    } catch (e) {
+      setError(e.message || 'Terjadi kesalahan inisialisasi Firestore');
+      setLoading(false);
+    }
 
     return () => {
-      unsubscribeSessions();
+      if (typeof unsubscribeSessions === 'function') {
+        unsubscribeSessions();
+      }
     };
-  }, []);
+  }, [refreshKey]);
 
   // 2. Subscribe ke daftar presensi sesi tertentu (untuk Asisten & Rekapitulasi)
   useEffect(() => {
@@ -231,6 +249,7 @@ export const useAttendance = (sessionId = '', studentId = '') => {
     loading,
     error,
     actionLoading,
+    refresh,
     handleOpenSession,
     handleCloseSession,
     handleRecordAttendance,

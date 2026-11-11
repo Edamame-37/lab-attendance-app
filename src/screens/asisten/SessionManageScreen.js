@@ -50,6 +50,8 @@ export const SessionManageScreen = () => {
     sessions,
     attendances,
     loading,
+    error,
+    refresh,
     actionLoading,
     handleOpenSession,
     handleCloseSession,
@@ -184,6 +186,21 @@ export const SessionManageScreen = () => {
           <Text style={styles.btnTambahText}>+ Buat Sesi</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Banner Error / Gangguan Koneksi Firestore */}
+      {error ? (
+        <View style={styles.errorBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.errorTitle}>Gangguan Koneksi Firestore</Text>
+            <Text style={styles.errorSubtitle}>
+              {error}. Pastikan konfigurasi Firebase dan koneksi internet Anda aktif.
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.btnRetry} onPress={refresh}>
+            <Text style={styles.btnRetryText}>Coba Lagi</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* Komponen Rekap Live untuk Sesi Terpilih */}
       {activeSelectedSession && (
@@ -505,6 +522,38 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  errorTitle: {
+    color: '#DC2626',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  errorSubtitle: {
+    color: '#7F1D1D',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  btnRetry: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  btnRetryText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   recapWrapper: {
     marginBottom: 16,

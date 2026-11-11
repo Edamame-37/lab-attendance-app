@@ -93,6 +93,37 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
+      {/* BANNER TESTING MODUL FARREL (SPRINT 2) */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => router.push('/test-farrel')}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: tema.accentSurface || '#ECFDF5',
+          borderColor: tema.accent,
+          borderWidth: 1,
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          marginBottom: 14,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="flask-outline" size={18} color={tema.accent} />
+          <View>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: tema.accent }}>
+              Uji Coba Modul Farrel (Sprint 2)
+            </Text>
+            <Text style={{ fontSize: 11, color: tema.textSecondary }}>
+              CRUD Sesi Firestore & Presensi Real-Time
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={tema.accent} />
+      </TouchableOpacity>
+
       {/* SECTION 1: SESI SEDANG BERLANGSUNG */}
       {sesiUtama && (
         <View style={styles.sectionWrap}>

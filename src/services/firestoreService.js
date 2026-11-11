@@ -20,7 +20,7 @@ import {
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firebase.js';
 
 // Nama koleksi utama di Firestore
 export const COLLECTIONS = {

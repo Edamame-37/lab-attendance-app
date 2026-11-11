@@ -37,6 +37,8 @@ export const AttendanceScanScreen = () => {
     userAttendanceRecord,
     isAlreadyAttended,
     loading,
+    error,
+    refresh,
     actionLoading,
     handleRecordAttendance,
   } = useAttendance(selectedSessionId, penggunaAktif?.id);
@@ -98,6 +100,21 @@ export const AttendanceScanScreen = () => {
           NIM: {penggunaAktif?.nomorInduk || '-'} • Kelas: {penggunaAktif?.kelas || '-'}
         </Text>
       </View>
+
+      {/* Banner Error / Gangguan Koneksi Firestore */}
+      {error ? (
+        <View style={styles.errorBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.errorTitle}>Gangguan Koneksi Firestore</Text>
+            <Text style={styles.errorSubtitle}>
+              {error}. Pastikan konfigurasi Firebase dan koneksi internet Anda aktif.
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.btnRetry} onPress={refresh}>
+            <Text style={styles.btnRetryText}>Coba Lagi</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* Banner Pesan Sukses */}
       {submitSuccessMessage ? (
@@ -309,6 +326,38 @@ const styles = StyleSheet.create({
   userMeta: {
     fontSize: 12,
     marginTop: 2,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  errorTitle: {
+    color: '#DC2626',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  errorSubtitle: {
+    color: '#7F1D1D',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  btnRetry: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  btnRetryText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   successBanner: {
     padding: 12,
