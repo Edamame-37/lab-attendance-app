@@ -1,7 +1,9 @@
 // src/services/aiService.js
 
-// Ganti URL di bawah dengan endpoint API AI resmi dari pengajar/dosen
-const AI_API_URL = 'https://api-ai-praktikum.example.com/classify';
+// Ganti URL di bawah dengan endpoint API AI resmi dari pengajar/dosen (dapat dikonfigurasi via EXPO_PUBLIC_AI_API_URL)
+const AI_API_URL =
+  process.env.EXPO_PUBLIC_AI_API_URL ||
+  'https://api-ai-praktikum.example.com/classify';
 const TIMEOUT_MS = 6000;
 
 export const classifyLeaveReason = async (reasonText) => {
