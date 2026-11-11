@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   SectionHeader,
@@ -41,6 +42,8 @@ export default function ProfilScreen(): React.JSX.Element {
     setModeTema,
     tema,
   } = useApp();
+
+  const { logout, user } = useAuth();
 
   const [modalPeranVisible, setModalPeranVisible] = useState<boolean>(false);
 
@@ -251,6 +254,50 @@ export default function ProfilScreen(): React.JSX.Element {
               </Text>
             </View>
           }
+        />
+      </GroupedInsetList>
+
+      {/* SECTION 4: SESI & AKUN FIREBASE */}
+      <SectionHeader title="Akun & Sesi" />
+      <GroupedInsetList>
+        <GroupedInsetItem
+          title="Email Akun"
+          subtitle={user?.email || 'Akun Pengembang / Tamu'}
+          leftElement={
+            <View
+              style={[
+                styles.itemIconSquircle,
+                { backgroundColor: tema.surfaceRaised },
+              ]}
+            >
+              <Ionicons name="mail-outline" size={17} color={tema.accent} />
+            </View>
+          }
+        />
+        <GroupedInsetItem
+          title="Keluar dari Akun"
+          subtitle="Mengakhiri sesi autentikasi Firebase"
+          isLast
+          leftElement={
+            <View
+              style={[
+                styles.itemIconSquircle,
+                { backgroundColor: '#FEE2E2' },
+              ]}
+            >
+              <Ionicons name="log-out-outline" size={17} color="#DC2626" />
+            </View>
+          }
+          rightElement={
+            <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+          }
+          onPress={async () => {
+            try {
+              await logout();
+            } catch (err) {
+              console.error('Logout error:', err);
+            }
+          }}
         />
       </GroupedInsetList>
 
