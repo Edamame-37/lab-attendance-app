@@ -34,6 +34,22 @@ import {
 const AuthContext = createContext(null);
 
 /**
+ * Membentuk profil minimum agar sesi autentikasi tetap dapat digunakan ketika
+ * dokumen profil belum tersedia atau sementara gagal dibaca dari Firestore.
+ *
+ * @param {import('firebase/auth').User} firebaseUser
+ * @returns {UserProfile}
+ */
+const createFallbackProfile = (firebaseUser) => ({
+  uid: firebaseUser.uid,
+  email: firebaseUser.email || '',
+  nama: firebaseUser.displayName || 'Pengguna',
+  nomorInduk: '-',
+  role: 'praktikan',
+  kelas: 'A',
+});
+
+/**
  * AuthProvider membungkus aplikasi untuk menyediakan state autentikasi ke seluruh komponen
  */
 export const AuthProvider = ({ children }) => {
@@ -54,32 +70,33 @@ export const AuthProvider = ({ children }) => {
    */
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      try {
-        if (currentUser) {
-          setUser(currentUser);
-          // Ambil data profil pengguna dari Firestore
-          const profile = await getUserProfile(currentUser.uid);
-          if (profile) {
-            setUserProfile(profile);
-          } else {
-            // Profil fallback jika dokumen Firestore belum tersinkronisasi
-            setUserProfile({
-              uid: currentUser.uid,
-              email: currentUser.email,
-              nama: currentUser.displayName || 'Pengguna',
-              nomorInduk: '-',
-              role: 'praktikan',
-              kelas: 'A',
-            });
-          }
-        } else {
-          setUser(null);
-          setUserProfile(null);
-        }
-      } catch (error) {
-        console.error('Error saat memeriksa state autentikasi:', error);
+      if (!currentUser) {
         setUser(null);
         setUserProfile(null);
+        setAuthError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Status Firebase Auth tetap valid meskipun profil Firestore gagal dimuat.
+      setUser(currentUser);
+      setAuthError(null);
+
+      try {
+        // Ambil data profil pengguna dari Firestore
+        const profile = await getUserProfile(currentUser.uid);
+        if (profile) {
+          setUserProfile(profile);
+        } else {
+          // Profil fallback jika dokumen Firestore belum tersinkronisasi
+          setUserProfile(createFallbackProfile(currentUser));
+        }
+      } catch (error) {
+        console.warn('Profil pengguna tidak dapat dimuat dari Firestore:', error);
+        setUserProfile(createFallbackProfile(currentUser));
+        setAuthError(
+          'Sesi berhasil dipulihkan, tetapi profil pengguna tidak dapat dimuat.'
+        );
       } finally {
         setIsLoading(false);
       }
