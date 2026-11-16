@@ -39,17 +39,9 @@ function MenuItem({
 export default function FiturSprint2Route(): React.JSX.Element {
   const router = useRouter();
   const { role, userProfile } = useAuth();
-  const isAsisten = role === 'asisten';
-
+  const isAsisten = role === 'asisten';  
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Fitur Sprint 2</Text>
-        <Text style={styles.subtitle}>
-          Pilih fitur sesuai peran akun yang sedang digunakan.
-        </Text>
-      </View>
-
       <View style={styles.profileCard}>
         <Text style={styles.profileName}>
           {userProfile?.nama || 'Pengguna'}
@@ -103,6 +95,7 @@ export default function FiturSprint2Route(): React.JSX.Element {
       </TouchableOpacity>
     </ScrollView>
   );
+
 }
 
 const styles = StyleSheet.create({

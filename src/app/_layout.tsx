@@ -93,6 +93,55 @@ function RootNavigator(): React.JSX.Element {
           }}
         />
 
+                <Stack.Screen
+          name="fitur-sprint2"
+          options={{
+            title: 'Fitur Sprint 2',
+          }}
+        />
+
+        <Stack.Screen
+          name="sesi"
+          options={{
+            title: 'Kelola Sesi Praktikum',
+          }}
+        />
+
+        <Stack.Screen
+          name="presensi-firestore"
+          options={{
+            title: 'Presensi Praktikum',
+          }}
+        />
+
+        <Stack.Screen
+          name="pengajuan-izin"
+          options={{
+            title: 'Pengajuan Izin',
+          }}
+        />
+
+        <Stack.Screen
+          name="status-izin"
+          options={{
+            title: 'Status Pengajuan Izin',
+          }}
+        />
+
+        <Stack.Screen
+          name="review-izin"
+          options={{
+            title: 'Review Pengajuan Izin',
+          }}
+        />
+
+        <Stack.Screen
+          name="test-farrel"
+          options={{
+            title: 'Testing Modul Farrel',
+          }}
+        />
+
         {/* Fallback Screen untuk rute yang tidak ditemukan */}
         <Stack.Screen
           name="+not-found"
