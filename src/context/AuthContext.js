@@ -34,22 +34,6 @@ import {
 const AuthContext = createContext(null);
 
 /**
- * Membentuk profil minimum agar sesi autentikasi tetap dapat digunakan ketika
- * dokumen profil belum tersedia atau sementara gagal dibaca dari Firestore.
- *
- * @param {import('firebase/auth').User} firebaseUser
- * @returns {UserProfile}
- */
-const createFallbackProfile = (firebaseUser) => ({
-  uid: firebaseUser.uid,
-  email: firebaseUser.email || '',
-  nama: firebaseUser.displayName || 'Pengguna',
-  nomorInduk: '-',
-  role: 'praktikan',
-  kelas: 'A',
-});
-
-/**
  * AuthProvider membungkus aplikasi untuk menyediakan state autentikasi ke seluruh komponen
  */
 export const AuthProvider = ({ children }) => {
@@ -85,18 +69,33 @@ export const AuthProvider = ({ children }) => {
       try {
         // Ambil data profil pengguna dari Firestore
         const profile = await getUserProfile(currentUser.uid);
-        if (profile) {
+        if (profile && ['praktikan', 'asisten'].includes(profile.role)) {
           setUserProfile(profile);
         } else {
-          // Profil fallback jika dokumen Firestore belum tersinkronisasi
-          setUserProfile(createFallbackProfile(currentUser));
+          setUserProfile(null);
+          setAuthError(
+            'Profil pengguna tidak ditemukan atau role tidak valid. Hubungi administrator.'
+          );
+          await logoutUser();
+          setUser(null);
+          setIsLoading(false);
+          return;
         }
       } catch (error) {
         console.warn('Profil pengguna tidak dapat dimuat dari Firestore:', error);
-        setUserProfile(createFallbackProfile(currentUser));
+
+        setUserProfile(null);
         setAuthError(
-          'Sesi berhasil dipulihkan, tetapi profil pengguna tidak dapat dimuat.'
+          'Gagal memuat profil pengguna dari Firestore. Silakan coba login kembali atau hubungi administrator.'
         );
+
+        try {
+          await logoutUser();
+        } catch (logoutError) {
+          console.warn('Gagal mengakhiri sesi pengguna:', logoutError);
+        }
+
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -174,14 +173,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   /**
-   * Helper penentu apakah user sedang login dan profil valid
+   * Autentikasi aplikasi baru dianggap valid kalau profil dan role pengguna juga valid
    */
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!user && !!userProfile && ['praktikan', 'asisten'].includes(userProfile.role);
 
   /**
-   * Peran aktif pengguna saat ini ('praktikan' atau 'asisten')
+   * Jika profil belum terssdia maka null
    */
-  const role = userProfile?.role || 'praktikan';
+  const role = userProfile?.role || null;
 
   const contextValue = {
     user,

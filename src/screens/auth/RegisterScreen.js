@@ -1,6 +1,6 @@
 /**
  * @file src/screens/auth/RegisterScreen.js
- * @description Antarmuka Form Registrasi pengguna baru (Praktikan & Asisten) berbasis Firebase Authentication.
+ * @description Antarmuka Form Registrasi pengguna baru khusus praktikan berbasis Firebase Authentication.
  * Menyediakan pemilihan peran (Role Selector), input NIM/NIP, kelas praktikum kondisional,
  * serta validasi konfirmasi kata sandi dan integritas data input.
  *
@@ -35,7 +35,7 @@ const RegisterScreen = ({ onNavigateToLogin }) => {
   // State data formulir pendaftaran
   const [nama, setNama] = useState('');
   const [nomorInduk, setNomorInduk] = useState('');
-  const [role, setRole] = useState('praktikan'); // 'praktikan' | 'asisten'
+  const role = 'praktikan';
   const [kelas, setKelas] = useState('A');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,9 +62,7 @@ const RegisterScreen = ({ onNavigateToLogin }) => {
     }
 
     if (!cleanNomorInduk) {
-      setErrorMessage(
-        role === 'praktikan' ? 'NIM wajib diisi.' : 'NIP / ID Asisten wajib diisi.'
-      );
+      setErrorMessage('NIM wajib diisi.');
       return;
     }
 
@@ -94,13 +92,12 @@ const RegisterScreen = ({ onNavigateToLogin }) => {
 
     try {
       await register({
-        email: cleanEmail,
-        password,
-        nama: cleanNama,
-        nomorInduk: cleanNomorInduk,
-        role,
-        kelas: role === 'praktikan' ? kelas : '',
-      });
+      email: cleanEmail,
+      password,
+      nama: cleanNama,
+      nomorInduk: cleanNomorInduk,
+      kelas,
+    });
       // Pendaftaran berhasil, AuthContext secara otomatis memperbarui state login
     } catch (error) {
       setErrorMessage(error.message || 'Gagal mendaftarkan akun. Silakan coba kembali.');
@@ -146,58 +143,6 @@ const RegisterScreen = ({ onNavigateToLogin }) => {
                 <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             ) : null}
-
-            {/* Pilihan Peran (Role Selector) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Daftar Sebagai Peran</Text>
-              <View style={styles.roleSelectorWrapper}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOption,
-                    role === 'praktikan' && styles.roleOptionActive,
-                  ]}
-                  onPress={() => setRole('praktikan')}
-                  disabled={loading}
-                >
-                  <Ionicons
-                    name="person"
-                    size={18}
-                    color={role === 'praktikan' ? '#FFFFFF' : '#71717A'}
-                  />
-                  <Text
-                    style={[
-                      styles.roleText,
-                      role === 'praktikan' && styles.roleTextActive,
-                    ]}
-                  >
-                    Praktikan (Mhs)
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.roleOption,
-                    role === 'asisten' && styles.roleOptionActive,
-                  ]}
-                  onPress={() => setRole('asisten')}
-                  disabled={loading}
-                >
-                  <Ionicons
-                    name="shield-checkmark"
-                    size={18}
-                    color={role === 'asisten' ? '#FFFFFF' : '#71717A'}
-                  />
-                  <Text
-                    style={[
-                      styles.roleText,
-                      role === 'asisten' && styles.roleTextActive,
-                    ]}
-                  >
-                    Asisten Lab
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
 
             {/* Input Nama Lengkap */}
             <View style={styles.inputGroup}>

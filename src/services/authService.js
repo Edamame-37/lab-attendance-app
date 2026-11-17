@@ -73,51 +73,60 @@ export const registerUser = async ({
   password,
   nama,
   nomorInduk,
-  role = 'praktikan',
   kelas = '',
 }) => {
-  if (!email || !password || !nama || !nomorInduk) {
-    throw new Error('Mohon lengkapi seluruh field pendaftaran yang wajib diisi.');
+  const cleanEmail = email?.trim().toLowerCase();
+  const cleanNama = nama?.trim();
+  const cleanNomorInduk = nomorInduk?.trim();
+
+  if (!cleanEmail || !password || !cleanNama || !cleanNomorInduk) {
+    throw new Error('Mohon lengkapi seluruh data pendaftaran.');
   }
 
   if (password.length < 6) {
-    throw new Error('Kata sandi harus terdiri dari minimal 6 karakter.');
+    throw new Error('Password minimal 6 karakter.');
   }
 
-  // 1. Buat user di Firebase Authentication
-  const userCredential = await createUserWithEmailAndPassword(
+  if (!kelas?.trim()) {
+    throw new Error('Kelas praktikum wajib dipilih.');
+  }
+
+  const credential = await createUserWithEmailAndPassword(
     auth,
-    email.trim(),
+    cleanEmail,
     password
   );
-  const user = userCredential.user;
 
-  // 2. Perbarui displayName di Firebase Auth user
+  const user = credential.user;
+
   try {
     await updateProfile(user, {
-      displayName: nama.trim(),
+      displayName: cleanNama,
     });
-  } catch (profileError) {
-    console.warn('Gagal memperbarui displayName auth:', profileError);
+
+    const userProfile = {
+      uid: user.uid,
+      nama: cleanNama,
+      nomorInduk: cleanNomorInduk,
+      email: cleanEmail,
+      role: 'praktikan',
+      kelas: kelas.trim(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(doc(db, 'users', user.uid), userProfile);
+
+    return {
+      user,
+      profile: userProfile,
+    };
+  } catch (error) {
+    // Jika penyimpanan profil gagal, jangan biarkan akun
+    // yang tidak memiliki profil valid tetap aktif.
+    await signOut(auth);
+    throw error;
   }
-
-  // 3. Bentuk payload profil untuk koleksi Firestore 'users'
-  const userProfile = {
-    uid: user.uid,
-    nama: nama.trim(),
-    nomorInduk: nomorInduk.trim(),
-    email: email.trim().toLowerCase(),
-    role: role,
-    kelas: role === 'praktikan' ? (kelas ? kelas.trim() : 'A') : null,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  // 4. Simpan dokumen profil ke Firestore dengan ID = UID user
-  const userDocRef = doc(db, 'users', user.uid);
-  await setDoc(userDocRef, userProfile);
-
-  return { user, profile: userProfile };
 };
 
 /**
