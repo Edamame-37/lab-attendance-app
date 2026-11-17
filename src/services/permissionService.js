@@ -1,4 +1,4 @@
-// src/services/permissionService.js
+
 import {
   collection,
   addDoc,
@@ -10,12 +10,25 @@ import {
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../config/firebase'; // Diinisialisasi oleh Azlan
+import { db } from '../config/firebase';
 
+// Nama koleksi pengajuan izin di Firestore
 const COLLECTION_NAME = 'leave_requests';
 
-// 1. Praktikan mengirim pengajuan izin baru
+// Menyimpan pengajuan izin baru dari Praktikan
 export const submitLeaveRequest = async (payload) => {
+  // Pastikan identitas dan data pengajuan tersedia
+  if (
+    !payload.studentId ||
+    !payload.studentName ||
+    !payload.studentNim ||
+    !payload.sessionId ||
+    !payload.sessionName ||
+    !payload.reason
+  ) {
+    throw new Error('Data pengajuan izin belum lengkap.');
+  }
+
   try {
     const docRef = await addDoc(collection(db, COLLECTION_NAME), {
       studentId: payload.studentId,
@@ -24,22 +37,31 @@ export const submitLeaveRequest = async (payload) => {
       sessionId: payload.sessionId,
       sessionName: payload.sessionName,
       reason: payload.reason,
-      aiCategory: payload.aiCategory,
-      aiConfidence: payload.aiConfidence ?? null,
+
+      // Akan diisi setelah model EDOM diintegrasikan pada FT-06
+      aiCategory: null,
+      aiConfidence: null,
+
       status: 'pending',
       reviewedBy: null,
       reviewedAt: null,
       createdAt: serverTimestamp(),
     });
+
     return { success: true, id: docRef.id };
   } catch (error) {
-    console.error('[permissionService] Error submitLeaveRequest:', error);
+    console.error('[permissionService] Gagal menyimpan pengajuan:', error);
     throw error;
   }
 };
 
-// 2. Real-time listener khusus untuk Praktikan (Data Isolation: hanya milik sendiri)
+// Memantau pengajuan milik Praktikan yang sedang login
 export const subscribeStudentLeaveRequests = (studentId, onUpdate, onError) => {
+  if (!studentId) {
+    onUpdate([]);
+    return () => {};
+  }
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('studentId', '==', studentId),
@@ -53,16 +75,17 @@ export const subscribeStudentLeaveRequests = (studentId, onUpdate, onError) => {
         id: docSnap.id,
         ...docSnap.data(),
       }));
+
       onUpdate(items);
     },
     (error) => {
-      console.error('[permissionService] Error subscribeStudentLeaveRequests:', error);
+      console.error('[permissionService] Gagal memantau pengajuan:', error);
       if (onError) onError(error);
     }
   );
 };
 
-// 3. Real-time listener untuk Asisten (melihat seluruh pengajuan)
+// Memantau seluruh pengajuan untuk kebutuhan Asisten (FT-07)
 export const subscribeAllLeaveRequests = (onUpdate, onError) => {
   const q = query(
     collection(db, COLLECTION_NAME),
@@ -76,31 +99,32 @@ export const subscribeAllLeaveRequests = (onUpdate, onError) => {
         id: docSnap.id,
         ...docSnap.data(),
       }));
+
       onUpdate(items);
     },
     (error) => {
-      console.error('[permissionService] Error subscribeAllLeaveRequests:', error);
+      console.error('[permissionService] Gagal memantau seluruh pengajuan:', error);
       if (onError) onError(error);
     }
   );
 };
 
-// 4. Asisten memberikan keputusan (approved / rejected)
+// Memproses keputusan Asisten (akan digunakan pada FT-07)
 export const reviewLeaveRequest = async (requestId, decision, assistantName) => {
   if (!['approved', 'rejected'].includes(decision)) {
-    throw new Error('Keputusan harus berupa "approved" atau "rejected".');
+    throw new Error('Keputusan harus approved atau rejected.');
   }
 
   try {
-    const requestRef = doc(db, COLLECTION_NAME, requestId);
-    await updateDoc(requestRef, {
+    await updateDoc(doc(db, COLLECTION_NAME, requestId), {
       status: decision,
       reviewedBy: assistantName || 'Asisten',
       reviewedAt: serverTimestamp(),
     });
+
     return { success: true };
   } catch (error) {
-    console.error('[permissionService] Error reviewLeaveRequest:', error);
+    console.error('[permissionService] Gagal memproses pengajuan:', error);
     throw error;
   }
 };
