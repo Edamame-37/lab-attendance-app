@@ -140,69 +140,7 @@ AI EDOM digunakan untuk melakukan klasifikasi sentimen terhadap teks alasan peng
 
 ---
 
-## 4. Panduan Menjalankan Aplikasi di Perangkat Mobile
-
-Aplikasi dapat dijalankan pada smartphone Android atau iPhone melalui aplikasi **Expo Go**, selama dependensi dan fitur yang digunakan kompatibel dengan Expo Go.
-
-Terdapat tiga metode yang dapat digunakan.
-
-### Metode A: Menggunakan Akun expo.dev
-
-1. Jika belum memiliki akun, daftar melalui [expo.dev/signup](https://expo.dev/signup).
-2. Login melalui terminal komputer:
-
-   ```bash
-   npx expo login
-   ```
-
-3. Periksa akun yang sedang digunakan:
-
-   ```bash
-   npx expo whoami
-   ```
-
-4. Buka aplikasi Expo Go pada smartphone.
-5. Login menggunakan akun Expo yang sama.
-6. Jalankan server Metro:
-
-   ```bash
-   npx expo start
-   ```
-
-7. Pilih proyek `ppk-mobile-praktikum` pada bagian Projects atau Development Servers jika tersedia.
-
-### Metode B: Menggunakan Pemindaian Kode QR
-
-Pastikan komputer dan smartphone terhubung ke jaringan Wi-Fi atau hotspot yang sama.
-
-1. Jalankan server:
-
-   ```bash
-   npx expo start --clear
-   ```
-
-2. Pindai kode QR yang muncul pada terminal menggunakan Expo Go di Android atau aplikasi Kamera di iOS.
-
-### Metode C: Menggunakan Mode Tunnel
-
-Gunakan metode ini jika komputer dan smartphone terhubung ke jaringan yang berbeda atau jaringan kampus membatasi koneksi lokal.
-
-```bash
-npx expo start --tunnel
-```
-
-### Tombol Pintasan Terminal
-
-| Tombol | Fungsi |
-|---|---|
-| `r` | Memuat ulang aplikasi. |
-| `w` | Membuka versi web jika didukung. |
-| `a` | Membuka emulator Android lokal. |
-| `c` | Menampilkan kembali kode QR. |
-
----
-
-## 5. Struktur Direktori Proyek
+## 4. Struktur Direktori Proyek
 
 Berikut gambaran struktur direktori berdasarkan modul yang dikembangkan. Beberapa direktori dapat berbeda sesuai implementasi akhir proyek.
 
@@ -254,7 +192,7 @@ Keterangan beberapa berkas utama:
 
 ---
 
-## 6. Panduan Build Aplikasi dengan EAS
+## 5. Panduan Build Aplikasi dengan EAS
 
 Gunakan EAS Build untuk menghasilkan aplikasi standalone.
 
@@ -280,51 +218,3 @@ Gunakan EAS Build untuk menghasilkan aplikasi standalone.
 
 ---
 
-## 7. Pemeriksaan Kualitas Kode
-
-Beberapa perintah yang dapat digunakan untuk memeriksa proyek:
-
-### Pemeriksaan TypeScript
-
-```bash
-npx tsc --noEmit
-```
-
-### Pemeriksaan Dependensi Expo
-
-```bash
-npx expo-doctor
-```
-
-Pemeriksaan dilakukan untuk membantu menemukan ketidaksesuaian tipe, dependensi, dan konfigurasi proyek.
-
----
-
-## 8. Panduan Pembaruan Nirkabel (EAS Update / Over-The-Air)
-
-Setelah aplikasi standalone yang mendukung `expo-updates` terpasang pada perangkat, pembaruan JavaScript, TypeScript, dan antarmuka dapat dikirim tanpa membuat ulang APK, selama perubahan kompatibel dengan native runtime yang sudah terpasang.
-
-Kirim pembaruan ke branch preview:
-
-```bash
-npx eas-cli update --branch preview --message "deskripsi pembaruan"
-```
-
-Perangkat yang menggunakan konfigurasi channel dan branch yang sesuai dapat menerima pembaruan tersebut melalui koneksi internet.
-
-Perubahan native, konfigurasi native tertentu, atau perubahan yang membutuhkan runtime baru tetap memerlukan proses build ulang.
-
----
-
-## 9. Catatan Pengembangan
-
-- Pastikan konfigurasi Firebase sesuai dengan proyek Firebase yang digunakan oleh tim.
-- Jangan mengunggah file kredensial privat atau informasi rahasia ke repositori publik.
-- Pastikan Firebase Authentication dan Firestore sudah dikonfigurasi sebelum mencoba fitur yang memerlukan koneksi Firebase.
-- Pastikan Firebase Security Rules sudah dipublikasikan sebelum melakukan pengujian hak akses.
-- Hasil analisis AI EDOM hanya menjadi informasi pendukung dan tidak menggantikan keputusan Asisten.
-- Pengujian akhir dilakukan setelah seluruh perubahan Sprint 2 selesai diintegrasikan.
-
----
-
-**Presensi Praktikum Mobile — Pengembangan Aplikasi Praktikum Pengembangan Perangkat Bergerak (PPK).**
