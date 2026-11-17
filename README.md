@@ -1,151 +1,330 @@
 # Presensi Praktikum Mobile - React Native
 
-Aplikasi presensi laboratorium untuk Praktikum Pengembangan Perangkat Bergerak (PPK) berbasis React Native menggunakan Expo SDK 58, TypeScript, dan Expo Router.
+Aplikasi presensi laboratorium untuk Praktikum Pengembangan Perangkat Bergerak (PPK) berbasis React Native menggunakan Expo SDK 58, TypeScript, Expo Router, dan Firebase.
 
-Dokumentasi analisis kebutuhan dan pembagian tugas paralel untuk 3 pemrogram tercantum pada berkas [PRAKMOBILE1.md](file:///c:/my-project/ppk-mobile-praktikum/PRAKMOBILE1.md).
+Dokumentasi analisis kebutuhan dan pembagian tugas paralel untuk 3 pemrogram tercantum pada berkas [PRAKMOBILE1.md](./PRAKMOBILE1.md).
 
 ---
 
-## 1. Ringkasan Modul Aplikasi Sprint 1
+## 1. Ringkasan Aplikasi
 
-Aplikasi menyediakan dua perspektif peran (Asisten Praktikum dan Praktikan) dengan navigasi 4 tab:
+Aplikasi dikembangkan secara bertahap melalui dua sprint:
+
+- **Sprint 1:** Implementasi fitur dasar presensi praktikum.
+- **Sprint 2:** Pengembangan autentikasi, penyimpanan data berbasis Firebase, pengajuan izin, dan integrasi klasifikasi sentimen AI EDOM.
+
+Aplikasi memiliki dua peran utama, yaitu **Asisten Praktikum** dan **Praktikan**, dengan hak akses dan fitur yang disesuaikan berdasarkan perannya.
+
+### 1.1 Modul Sprint 1
+
+Aplikasi menyediakan empat tab navigasi utama:
 
 | Tab Navigasi | Berkas Sumber | Penanggung Jawab | Deskripsi Fungsional |
 |---|---|---|---|
-| Jadwal Sesi | [src/app/(tabs)/index.tsx](file:///c:/my-project/ppk-mobile-praktikum/src/app/%28tabs%29/index.tsx) | Pemrogram 1 | Pemantauan jadwal dan siklus sesi praktikum (buka/tutup sesi oleh asisten). |
-| Presensi | [src/app/(tabs)/presensi.tsx](file:///c:/my-project/ppk-mobile-praktikum/src/app/%28tabs%29/presensi.tsx) | Pemrogram 2 | Formulir pencatatan kehadiran mahasiswa dengan validasi anti-duplikasi dan riwayat pribadi. |
-| Rekapitulasi | [src/app/(tabs)/rekap.tsx](file:///c:/my-project/ppk-mobile-praktikum/src/app/%28tabs%29/rekap.tsx) | Pemrogram 3 | Rekapitulasi kehadiran praktikan per sesi, catatan waktu presensi, dan statistik kehadiran. |
-| Profil | [src/app/(tabs)/profil.tsx](file:///c:/my-project/ppk-mobile-praktikum/src/app/%28tabs%29/profil.tsx) | Pemrogram 3 | Informasi identitas pengguna aktif, pengalih peran, dan ringkasan arsitektur. |
+| Jadwal Sesi | `src/app/(tabs)/index.tsx` | Pemrogram 1 | Pemantauan jadwal dan siklus sesi praktikum, termasuk pembukaan dan penutupan sesi oleh Asisten. |
+| Presensi | `src/app/(tabs)/presensi.tsx` | Pemrogram 2 | Pencatatan kehadiran mahasiswa dengan validasi anti-duplikasi dan riwayat presensi pribadi. |
+| Rekapitulasi | `src/app/(tabs)/rekap.tsx` | Pemrogram 3 | Rekapitulasi kehadiran praktikan per sesi, catatan waktu presensi, dan statistik kehadiran. |
+| Profil | `src/app/(tabs)/profil.tsx` | Pemrogram 3 | Informasi identitas pengguna, pengalih peran, dan ringkasan aplikasi. |
+
+### 1.2 Pengembangan Sprint 2
+
+Sprint 2 berfokus pada pengembangan autentikasi, pengelolaan pengajuan izin, serta penerapan AI untuk membantu analisis sentimen.
+
+| Kode SRS | Fitur | Deskripsi |
+|---|---|---|
+| FT-01 | Autentikasi Pengguna | Pengguna melakukan autentikasi menggunakan Firebase Authentication. |
+| FT-05 | Pengajuan Izin Praktikan | Praktikan dapat mengirim pengajuan izin yang disimpan pada Cloud Firestore. |
+| FT-06 | Analisis Sentimen AI EDOM | Sistem menganalisis teks alasan izin menggunakan model klasifikasi sentimen lokal. |
+| FT-07 | Pemeriksaan Status Izin | Asisten dapat menyetujui atau menolak pengajuan, sedangkan Praktikan dapat melihat status pengajuannya. |
+| FT-08 | Pengamanan Hak Akses | Akses fitur disesuaikan dengan peran pengguna dan dilindungi melalui aturan keamanan Firebase. |
+
+### 1.3 Alur Pengajuan Izin
+
+1. Praktikan masuk ke aplikasi menggunakan akun yang telah terautentikasi.
+2. Praktikan mengisi formulir pengajuan izin dengan memilih sesi praktikum dan menuliskan alasan izin.
+3. Sistem melakukan analisis sentimen terhadap teks alasan menggunakan AI EDOM.
+4. Data pengajuan beserta hasil analisis AI disimpan ke Cloud Firestore dengan status awal `pending`.
+5. Asisten melihat daftar pengajuan izin yang masuk.
+6. Asisten memeriksa alasan dan hasil analisis sentimen sebagai informasi pendukung.
+7. Asisten memberikan keputusan berupa `approved` atau `rejected`.
+8. Status dan informasi keputusan tersimpan di Firestore dan dapat dipantau oleh Praktikan.
+
+### 1.4 Teknologi yang Digunakan
+
+| Teknologi | Kegunaan |
+|---|---|
+| React Native | Pengembangan antarmuka aplikasi mobile. |
+| Expo | Lingkungan pengembangan dan pengujian aplikasi. |
+| TypeScript / JavaScript | Bahasa pemrograman aplikasi. |
+| Expo Router | Pengelolaan navigasi aplikasi. |
+| Firebase Authentication | Autentikasi pengguna. |
+| Cloud Firestore | Penyimpanan data pengajuan izin dan informasi terkait. |
+| Firebase Security Rules | Pengaturan hak akses terhadap data Firebase. |
+| JavaScript | Implementasi pemrosesan model AI lokal. |
+| EAS Build | Proses build aplikasi Android dan iOS. |
+| EAS Update | Distribusi pembaruan aplikasi secara nirkabel. |
 
 ---
 
-## 2. Panduan Menjalankan Aplikasi di Perangkat Mobile
+## 2. Integrasi Firebase
 
-Aplikasi dapat dijalankan pada smartphone Android atau iPhone melalui aplikasi **Expo Go**. Terdapat tiga metode yang dapat digunakan:
+Firebase digunakan untuk mendukung autentikasi dan penyimpanan data aplikasi.
 
-### Metode A: Menggunakan Akun expo.dev (Rekomendasi - Tanpa Scan QR)
-Metode ini paling praktis karena proyek yang sedang berjalan akan otomatis terdeteksi di ponsel Anda tanpa perlu memindai kode QR menggunakan kamera:
+### 2.1 Firebase Authentication
 
-1. **Daftar Akun**: Jika belum memiliki akun, daftar gratis di [expo.dev/signup](https://expo.dev/signup).
-2. **Login di Terminal Komputer**:
+Firebase Authentication digunakan untuk mengelola proses autentikasi pengguna. Informasi autentikasi pengguna digunakan untuk mengidentifikasi akun yang sedang aktif.
+
+Akses aplikasi dibedakan berdasarkan peran:
+
+- **Praktikan:** Mengakses fitur presensi, pengajuan izin, dan pemantauan status pengajuan.
+- **Asisten:** Mengakses fitur pengelolaan sesi, rekapitulasi, serta pemeriksaan pengajuan izin.
+
+### 2.2 Cloud Firestore
+
+Cloud Firestore digunakan untuk menyimpan data pengajuan izin pada koleksi:
+
+`leave_requests`
+
+Status pengajuan izin:
+
+- `pending`: Menunggu pemeriksaan Asisten.
+- `approved`: Pengajuan disetujui.
+- `rejected`: Pengajuan ditolak.
+
+Keputusan Asisten diproses menggunakan Firestore Transaction untuk memastikan pengajuan yang sudah diputuskan tidak diproses kembali.
+
+### 2.3 Firebase Security Rules
+
+Aturan keamanan Firestore digunakan untuk membatasi akses data berdasarkan identitas dan peran pengguna.
+
+Secara umum:
+- Praktikan hanya dapat membaca pengajuan miliknya.
+- Praktikan hanya dapat membuat pengajuan dengan identitas akun yang sedang digunakan dan status awal `pending`.
+- Asisten dapat memantau pengajuan dan memberikan keputusan.
+- Perubahan status dan informasi pemeriksaan dibatasi sesuai aturan keamanan yang diterapkan.
+
+Pastikan aturan keamanan yang digunakan sudah dipublikasikan melalui Firebase Console.
+
+---
+
+## 3. Integrasi AI EDOM
+
+AI EDOM digunakan untuk melakukan klasifikasi sentimen terhadap teks alasan pengajuan izin.
+
+### 3.1 Mekanisme Analisis
+
+1. Praktikan mengisi alasan izin.
+2. Sistem mengirim teks ke fungsi `analyzeSentiment()`.
+3. Model lokal melakukan pemrosesan teks dan klasifikasi sentimen.
+4. Sistem menghasilkan kategori sentimen.
+5. Hasil analisis disimpan bersama data pengajuan di Cloud Firestore.
+6. Hasil klasifikasi ditampilkan melalui komponen `AIBadge`.
+
+### 3.2 Kategori Sentimen
+
+| Kategori | Keterangan |
+|---|---|
+| Positif | Teks memiliki kecenderungan sentimen positif. |
+| Netral | Teks memiliki kecenderungan sentimen netral. |
+| Negatif | Teks memiliki kecenderungan sentimen negatif. |
+| Perlu Verifikasi Manual | Analisis tidak menghasilkan kategori yang dapat digunakan. |
+
+### 3.3 Karakteristik Model
+
+- Model dijalankan secara lokal menggunakan JavaScript.
+- Tidak memerlukan layanan API eksternal untuk proses klasifikasi.
+- Menggunakan algoritma Linear Support Vector Classifier (LinearSVC).
+- Hasil analisis digunakan sebagai informasi pendukung bagi Asisten.
+
+**Catatan:** Model EDOM yang digunakan masih merupakan baseline penelitian dan belum divalidasi secara khusus menggunakan dataset komentar praktikum. Oleh karena itu, hasil klasifikasi bersifat eksperimental, bukan keputusan otomatis. Asisten tetap bertanggung jawab melakukan pemeriksaan dan menentukan persetujuan atau penolakan pengajuan izin.
+
+---
+
+## 4. Panduan Menjalankan Aplikasi di Perangkat Mobile
+
+Aplikasi dapat dijalankan pada smartphone Android atau iPhone melalui aplikasi **Expo Go**, selama dependensi dan fitur yang digunakan kompatibel dengan Expo Go.
+
+Terdapat tiga metode yang dapat digunakan.
+
+### Metode A: Menggunakan Akun expo.dev
+
+1. Jika belum memiliki akun, daftar melalui [expo.dev/signup](https://expo.dev/signup).
+2. Login melalui terminal komputer:
+
    ```bash
    npx expo login
    ```
-   Masukkan email/username dan password akun Expo Anda. Pastikan login berhasil dengan perintah:
+
+3. Periksa akun yang sedang digunakan:
+
    ```bash
    npx expo whoami
    ```
-3. **Login di Aplikasi Ponsel**:
-   - Buka aplikasi **Expo Go** di Android atau iPhone.
-   - Buka menu akun/profil, lalu masuk menggunakan akun Expo yang sama persis dengan yang ada di terminal komputer.
-4. **Jalankan Server Metro**:
+
+4. Buka aplikasi Expo Go pada smartphone.
+5. Login menggunakan akun Expo yang sama.
+6. Jalankan server Metro:
+
    ```bash
    npx expo start
    ```
-5. **Buka Proyek**:
-   - Di aplikasi Expo Go ponsel Anda, lihat bagian **Projects** atau **Development Servers**.
-   - Nama proyek `ppk-mobile-praktikum` akan otomatis muncul. Ketuk proyek tersebut untuk langsung menjalankannya.
 
-### Metode B: Menggunakan Pemindaian Kode QR (Satu Jaringan Wi-Fi)
-Pastikan komputer dan ponsel terhubung pada jaringan Wi-Fi atau hotspot yang sama:
+7. Pilih proyek `ppk-mobile-praktikum` pada bagian Projects atau Development Servers jika tersedia.
 
-1. Jalankan server di terminal:
+### Metode B: Menggunakan Pemindaian Kode QR
+
+Pastikan komputer dan smartphone terhubung ke jaringan Wi-Fi atau hotspot yang sama.
+
+1. Jalankan server:
+
    ```bash
    npx expo start --clear
    ```
-2. Pindai kode QR yang tampil di terminal:
-   - **Android**: Buka Expo Go, pilih tombol "Scan QR code", dan arahkan kamera ke kode QR.
-   - **iOS (iPhone)**: Buka aplikasi Kamera bawaan iPhone, arahkan ke kode QR, lalu ketuk notifikasi kuning "Open in Expo Go".
 
-### Metode C: Menggunakan Mode Tunnel (Beda Jaringan / Wi-Fi Kampus Terisolasi)
-Gunakan metode ini jika komputer dan ponsel berada di jaringan Wi-Fi yang berbeda atau jaringan publik dengan proteksi firewall ketat:
+2. Pindai kode QR yang muncul pada terminal menggunakan Expo Go di Android atau aplikasi Kamera di iOS.
+
+### Metode C: Menggunakan Mode Tunnel
+
+Gunakan metode ini jika komputer dan smartphone terhubung ke jaringan yang berbeda atau jaringan kampus membatasi koneksi lokal.
 
 ```bash
 npx expo start --tunnel
 ```
 
-### Tombol Pintasan Berguna di Terminal
-- Tekan `r` : Memuat ulang (*reload*) aplikasi di ponsel.
-- Tekan `w` : Membuka aplikasi versi web browser.
-- Tekan `a` : Membuka emulator Android lokal.
-- Tekan `c` : Menampilkan kembali kode QR di terminal.
+### Tombol Pintasan Terminal
+
+| Tombol | Fungsi |
+|---|---|
+| `r` | Memuat ulang aplikasi. |
+| `w` | Membuka versi web jika didukung. |
+| `a` | Membuka emulator Android lokal. |
+| `c` | Menampilkan kembali kode QR. |
 
 ---
 
-## 3. Struktur Direktori Proyek
+## 5. Struktur Direktori Proyek
+
+Berikut gambaran struktur direktori berdasarkan modul yang dikembangkan. Beberapa direktori dapat berbeda sesuai implementasi akhir proyek.
 
 ```text
-c:/my-project/ppk-mobile-praktikum
-├── PRAKMOBILE1.md              # Analisis kebutuhan dan pembagian kerja 3 pemrogram
-├── README.md                   # Dokumentasi teknis proyek
+lab-attendance-app/
+├── ai/
+│   ├── model-edom.json
+│   └── sentiment.js
 ├── src/
 │   ├── app/
-│   │   ├── _layout.tsx         # Root Stack Navigator dibungkus AppProvider
-│   │   ├── +not-found.tsx      # Layar fallback rute tidak terdaftar (404)
-│   │   └── (tabs)/             # Grup Navigasi Tab Bawah
-│   │       ├── _layout.tsx     # Konfigurasi navigasi tab dan ikon Ionicons
-│   │       ├── index.tsx       # Tab 1: Jadwal Sesi & Pengelolaan Sesi Asisten
-│   │       ├── presensi.tsx    # Tab 2: Formulir Presensi Praktikan
-│   │       ├── rekap.tsx       # Tab 3: Rekapitulasi Kehadiran Asisten
-│   │       └── profil.tsx      # Tab 4: Profil & Alih Peran Pengguna
+│   │   └── (tabs)/
 │   ├── components/
-│   │   ├── common/
-│   │   │   ├── BadgeStatus.tsx # Badge status sesi (DIBUKA, DITUTUP, SELESAI)
-│   │   │   ├── EmptyState.tsx  # Tampilan visual kondisi data kosong
-│   │   │   └── RoleSelector.tsx# Komponen pengalih peran Praktikan dan Asisten
-│   │   ├── ScreenContainer.tsx # Pembungkus layar terstandarisasi dengan SafeAreaView
-│   │   └── SectionCard.tsx     # Komponen kartu seksi modular
+│   │   └── common/
+│   │       └── AIBadge.js
+│   ├── config/
+│   │   └── firebase.js
 │   ├── context/
-│   │   └── AppContext.tsx      # State management global (in-memory)
-│   ├── data/
-│   │   └── dummyData.ts        # Data awal dummy pengguna, sesi, dan presensi
-│   └── types/
-│       └── index.ts            # Definisi kontrak tipe data TypeScript
-├── app.json                    # Konfigurasi Expo Router dan skema aplikasi
-├── package.json                # Dependensi proyek
-└── tsconfig.json               # Konfigurasi TypeScript dan path alias @/*
+│   │   └── AuthContext.js
+│   ├── screens/
+│   │   ├── asisten/
+│   │   │   └── LeaveReviewScreen.js
+│   │   └── praktikan/
+│   │       ├── LeaveRequestScreen.js
+│   │       └── LeaveStatusScreen.js
+│   └── services/
+│       ├── aiService.js
+│       └── permissionService.js
+├── app.json
+├── eas.json
+├── package.json
+├── PRAKMOBILE1.md
+└── README.md
 ```
+
+Keterangan beberapa berkas utama:
+
+| Berkas | Fungsi |
+|---|---|
+| `ai/model-edom.json` | Menyimpan parameter model klasifikasi sentimen EDOM. |
+| `ai/sentiment.js` | Implementasi mesin klasifikasi sentimen. |
+| `src/config/firebase.js` | Konfigurasi koneksi Firebase. |
+| `src/context/AuthContext.js` | Pengelolaan konteks autentikasi pengguna. |
+| `src/components/common/AIBadge.js` | Komponen tampilan hasil klasifikasi sentimen. |
+| `src/services/aiService.js` | Penghubung aplikasi dengan model AI EDOM. |
+| `src/services/permissionService.js` | Pengelolaan pengajuan izin, pemantauan data, dan keputusan Asisten di Firestore. |
+| `src/screens/praktikan/LeaveRequestScreen.js` | Formulir pengajuan izin Praktikan. |
+| `src/screens/praktikan/LeaveStatusScreen.js` | Tampilan status pengajuan izin Praktikan. |
+| `src/screens/asisten/LeaveReviewScreen.js` | Tampilan pemeriksaan pengajuan izin oleh Asisten. |
 
 ---
 
-## 4. Panduan Build Aplikasi dengan EAS
+## 6. Panduan Build Aplikasi dengan EAS
 
-Layanan build klasik `expo build` telah ditutup permanen. Gunakan EAS Build:
+Gunakan EAS Build untuk menghasilkan aplikasi standalone.
 
-1. Login akun Expo:
+1. Login ke akun Expo:
+
    ```bash
    npx eas-cli login
    ```
-2. Inisialisasi konfigurasi EAS:
+
+2. Inisialisasi konfigurasi EAS jika belum tersedia:
+
    ```bash
    npx eas-cli build:configure
    ```
-3. Kompilasi APK Standalone untuk Android:
+
+3. Build aplikasi Android menggunakan profil preview:
+
    ```bash
    npx eas-cli build -p android --profile preview
    ```
 
----
-
-## 5. Pemeriksaan Kualitas Kode
-- Validasi Tipe TypeScript:
-  ```bash
-  npx tsc --noEmit
-  ```
-- Diagnostik Dependensi Expo:
-  ```bash
-  npx expo-doctor
-  ```
+4. Setelah proses build selesai, unduh hasil build melalui tautan yang disediakan EAS.
 
 ---
 
-## 6. Panduan Pembaruan Nirkabel (EAS Update / Over-The-Air)
+## 7. Pemeriksaan Kualitas Kode
 
-Setelah APK yang memuat runtime `expo-updates` dipasang di ponsel, pembaruan kode JavaScript, TypeScript, atau antarmuka UI dapat dikirimkan langsung tanpa perlu membuat atau memasang ulang APK:
+Beberapa perintah yang dapat digunakan untuk memeriksa proyek:
 
-1. Kirim pembaruan ke saluran (*channel*) preview:
-   ```bash
-   npx eas-cli update --branch preview --message "deskripsi pembaruan"
-   ```
-2. Buka aplikasi di ponsel yang terhubung internet. Aplikasi akan otomatis mengunduh bundle terbaru di latar belakang dan menerapkannya pada pembukaan aplikasi berikutnya.
+### Pemeriksaan TypeScript
 
+```bash
+npx tsc --noEmit
+```
+
+### Pemeriksaan Dependensi Expo
+
+```bash
+npx expo-doctor
+```
+
+Pemeriksaan dilakukan untuk membantu menemukan ketidaksesuaian tipe, dependensi, dan konfigurasi proyek.
+
+---
+
+## 8. Panduan Pembaruan Nirkabel (EAS Update / Over-The-Air)
+
+Setelah aplikasi standalone yang mendukung `expo-updates` terpasang pada perangkat, pembaruan JavaScript, TypeScript, dan antarmuka dapat dikirim tanpa membuat ulang APK, selama perubahan kompatibel dengan native runtime yang sudah terpasang.
+
+Kirim pembaruan ke branch preview:
+
+```bash
+npx eas-cli update --branch preview --message "deskripsi pembaruan"
+```
+
+Perangkat yang menggunakan konfigurasi channel dan branch yang sesuai dapat menerima pembaruan tersebut melalui koneksi internet.
+
+Perubahan native, konfigurasi native tertentu, atau perubahan yang membutuhkan runtime baru tetap memerlukan proses build ulang.
+
+---
+
+## 9. Catatan Pengembangan
+
+- Pastikan konfigurasi Firebase sesuai dengan proyek Firebase yang digunakan oleh tim.
+- Jangan mengunggah file kredensial privat atau informasi rahasia ke repositori publik.
+- Pastikan Firebase Authentication dan Firestore sudah dikonfigurasi sebelum mencoba fitur yang memerlukan koneksi Firebase.
+- Pastikan Firebase Security Rules sudah dipublikasikan sebelum melakukan pengujian hak akses.
+- Hasil analisis AI EDOM hanya menjadi informasi pendukung dan tidak menggantikan keputusan Asisten.
+- Pengujian akhir dilakukan setelah seluruh perubahan Sprint 2 selesai diintegrasikan.
+
+---
+
+**Presensi Praktikum Mobile — Pengembangan Aplikasi Praktikum Pengembangan Perangkat Bergerak (PPK).**
