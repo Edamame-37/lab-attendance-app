@@ -9,22 +9,22 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
+  runTransaction,
 } from 'firebase/firestore';
+
 import { db } from '../config/firebase';
 
-// Nama koleksi pengajuan izin di Firestore
 const COLLECTION_NAME = 'leave_requests';
 
-// Menyimpan pengajuan izin baru dari Praktikan
+// Membuat pengajuan izin baru dari Praktikan
 export const submitLeaveRequest = async (payload) => {
-  // Pastikan identitas dan data pengajuan tersedia
   if (
     !payload.studentId ||
     !payload.studentName ||
     !payload.studentNim ||
     !payload.sessionId ||
     !payload.sessionName ||
-    !payload.reason
+    !payload.reason?.trim()
   ) {
     throw new Error('Data pengajuan izin belum lengkap.');
   }
@@ -36,12 +36,9 @@ export const submitLeaveRequest = async (payload) => {
       studentNim: payload.studentNim,
       sessionId: payload.sessionId,
       sessionName: payload.sessionName,
-      reason: payload.reason,
-
-      // Akan diisi setelah model EDOM diintegrasikan pada FT-06
+      reason: payload.reason.trim(),
       aiCategory: null,
       aiConfidence: null,
-
       status: 'pending',
       reviewedBy: null,
       reviewedAt: null,
@@ -55,8 +52,12 @@ export const submitLeaveRequest = async (payload) => {
   }
 };
 
-// Memantau pengajuan milik Praktikan yang sedang login
-export const subscribeStudentLeaveRequests = (studentId, onUpdate, onError) => {
+// Memantau pengajuan milik Praktikan
+export const subscribeStudentLeaveRequests = (
+  studentId,
+  onUpdate,
+  onError
+) => {
   if (!studentId) {
     onUpdate([]);
     return () => {};
@@ -85,7 +86,7 @@ export const subscribeStudentLeaveRequests = (studentId, onUpdate, onError) => {
   );
 };
 
-// Memantau seluruh pengajuan untuk kebutuhan Asisten (FT-07)
+// Memantau seluruh pengajuan untuk Asisten
 export const subscribeAllLeaveRequests = (onUpdate, onError) => {
   const q = query(
     collection(db, COLLECTION_NAME),
@@ -103,23 +104,56 @@ export const subscribeAllLeaveRequests = (onUpdate, onError) => {
       onUpdate(items);
     },
     (error) => {
-      console.error('[permissionService] Gagal memantau seluruh pengajuan:', error);
+      console.error(
+        '[permissionService] Gagal memantau seluruh pengajuan:',
+        error
+      );
       if (onError) onError(error);
     }
   );
 };
 
-// Memproses keputusan Asisten (akan digunakan pada FT-07)
-export const reviewLeaveRequest = async (requestId, decision, assistantName) => {
+// Memproses keputusan Asisten satu kali untuk setiap pengajuan
+export const reviewLeaveRequest = async (
+  requestId,
+  decision,
+  assistantName
+) => {
+  if (!requestId) {
+    throw new Error('ID pengajuan tidak tersedia.');
+  }
+
   if (!['approved', 'rejected'].includes(decision)) {
     throw new Error('Keputusan harus approved atau rejected.');
   }
 
+  const reviewer = assistantName?.trim();
+
+  if (!reviewer) {
+    throw new Error('Nama Asisten tidak tersedia.');
+  }
+
   try {
-    await updateDoc(doc(db, COLLECTION_NAME, requestId), {
-      status: decision,
-      reviewedBy: assistantName || 'Asisten',
-      reviewedAt: serverTimestamp(),
+    const requestRef = doc(db, COLLECTION_NAME, requestId);
+
+    await runTransaction(db, async (transaction) => {
+      const requestSnapshot = await transaction.get(requestRef);
+
+      if (!requestSnapshot.exists()) {
+        throw new Error('Pengajuan izin tidak ditemukan.');
+      }
+
+      const requestData = requestSnapshot.data();
+
+      if (requestData.status !== 'pending') {
+        throw new Error('Pengajuan ini sudah pernah diputuskan.');
+      }
+
+      transaction.update(requestRef, {
+        status: decision,
+        reviewedBy: reviewer,
+        reviewedAt: serverTimestamp(),
+      });
     });
 
     return { success: true };

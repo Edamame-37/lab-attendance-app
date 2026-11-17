@@ -9,8 +9,51 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../../context/AuthContext';
-import { subscribeStudentLeaveRequests } from '../../services/permissionService';
+import {
+  subscribeStudentLeaveRequests,
+} from '../../services/permissionService';
 import { AIBadge } from '../../components/common/AIBadge';
+
+const formatDate = (timestamp) => {
+  if (!timestamp) return '-';
+
+  const date =
+    typeof timestamp.toDate === 'function'
+      ? timestamp.toDate()
+      : new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+};
+
+const getStatusBadge = (status) => {
+  switch (status) {
+    case 'approved':
+      return {
+        label: 'DISETUJUI',
+        color: '#059669',
+        backgroundColor: '#D1FAE5',
+      };
+
+    case 'rejected':
+      return {
+        label: 'DITOLAK',
+        color: '#DC2626',
+        backgroundColor: '#FEE2E2',
+      };
+
+    default:
+      return {
+        label: 'MENUNGGU',
+        color: '#D97706',
+        backgroundColor: '#FEF3C7',
+      };
+  }
+};
 
 export const LeaveStatusScreen = () => {
   const { user } = useAuth();
@@ -19,9 +62,9 @@ export const LeaveStatusScreen = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Memantau pengajuan milik Praktikan yang sedang login
   useEffect(() => {
     if (!user?.uid) {
+      setRequests([]);
       setLoading(false);
       return;
     }
@@ -40,34 +83,71 @@ export const LeaveStatusScreen = () => {
       }
     );
 
-    // Menghentikan listener saat halaman ditutup
     return () => unsubscribe();
   }, [user?.uid]);
 
-  // Menentukan tampilan berdasarkan status pengajuan
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'approved':
-        return {
-          label: 'DISETUJUI',
-          color: '#059669',
-          bg: '#D1FAE5',
-        };
+  const renderItem = ({ item }) => {
+    const statusStyle = getStatusBadge(item.status);
+    const isPending = item.status === 'pending';
 
-      case 'rejected':
-        return {
-          label: 'DITOLAK',
-          color: '#DC2626',
-          bg: '#FEE2E2',
-        };
+    return (
+      <View style={styles.card}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.sessionTitle}>
+            {item.sessionName || 'Sesi Praktikum'}
+          </Text>
 
-      default:
-        return {
-          label: 'MENUNGGU',
-          color: '#D97706',
-          bg: '#FEF3C7',
-        };
-    }
+          <View
+            style={[
+              styles.statusChip,
+              { backgroundColor: statusStyle.backgroundColor },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusChipText,
+                { color: statusStyle.color },
+              ]}
+            >
+              {statusStyle.label}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionLabel}>Alasan izin</Text>
+        <Text style={styles.reasonText}>
+          {item.reason || '-'}
+        </Text>
+
+        {item.aiCategory ? (
+          <AIBadge
+            category={item.aiCategory}
+            status={item.aiStatus}
+            experimental={item.aiExperimental}
+          />
+        ) : null}
+
+        {isPending ? (
+          <Text style={styles.pendingInfo}>
+            Pengajuan sedang menunggu verifikasi Asisten.
+          </Text>
+        ) : (
+          <View style={styles.reviewInfo}>
+            <Text style={styles.reviewerInfo}>
+              Diputuskan oleh: {item.reviewedBy || '-'}
+            </Text>
+
+            <Text style={styles.reviewerInfo}>
+              Waktu keputusan: {formatDate(item.reviewedAt)}
+            </Text>
+          </View>
+        )}
+
+        <Text style={styles.createdInfo}>
+          Diajukan: {formatDate(item.createdAt)}
+        </Text>
+      </View>
+    );
   };
 
   if (loading) {
@@ -83,7 +163,6 @@ export const LeaveStatusScreen = () => {
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Status Pengajuan Izin Saya</Text>
 
-      {/* Menampilkan pesan jika Firestore gagal dibaca */}
       {errorMessage ? (
         <Text style={styles.errorText}>{errorMessage}</Text>
       ) : null}
@@ -91,6 +170,7 @@ export const LeaveStatusScreen = () => {
       <FlatList
         data={requests}
         keyExtractor={(item) => item.id}
+        renderItem={renderItem}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
@@ -98,53 +178,6 @@ export const LeaveStatusScreen = () => {
             </Text>
           </View>
         }
-        renderItem={({ item }) => {
-          const statusStyle = getStatusBadge(item.status);
-
-          return (
-            <View style={styles.card}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.sessionTitle}>
-                  {item.sessionName}
-                </Text>
-
-                <View
-                  style={[
-                    styles.statusChip,
-                    { backgroundColor: statusStyle.bg },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusChipText,
-                      { color: statusStyle.color },
-                    ]}
-                  >
-                    {statusStyle.label}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.reasonText}>
-                "{item.reason}"
-              </Text>
-
-              {/* Badge AI muncul setelah hasil EDOM tersedia */}
-              {item.aiCategory ? (
-                <AIBadge
-                  category={item.aiCategory}
-                  confidence={item.aiConfidence}
-                />
-              ) : null}
-
-              {item.reviewedBy ? (
-                <Text style={styles.reviewerInfo}>
-                  Diverifikasi oleh: {item.reviewedBy}
-                </Text>
-              ) : null}
-            </View>
-          );
-        }}
       />
     </View>
   );
@@ -174,7 +207,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#DC2626',
-    fontSize: 13,
     marginBottom: 12,
   },
   emptyBox: {
@@ -184,6 +216,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#9CA3AF',
     fontSize: 14,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -215,15 +248,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 5,
+  },
   reasonText: {
     fontSize: 14,
     color: '#4B5563',
-    fontStyle: 'italic',
     marginBottom: 6,
+  },
+  pendingInfo: {
+    fontSize: 12,
+    color: '#D97706',
+    marginTop: 8,
+  },
+  reviewInfo: {
+    marginTop: 8,
   },
   reviewerInfo: {
     fontSize: 12,
     color: '#6B7280',
-    marginTop: 6,
+    marginTop: 4,
+  },
+  createdInfo: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 10,
   },
 });
