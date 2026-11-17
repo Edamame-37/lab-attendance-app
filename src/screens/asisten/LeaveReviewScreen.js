@@ -1,4 +1,4 @@
-// src/screens/asisten/LeaveReviewScreen.js
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -9,12 +9,17 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+
 import { useAuth } from '../../context/AuthContext';
-import { subscribeAllLeaveRequests, reviewLeaveRequest } from '../../services/permissionService';
+import {
+  subscribeAllLeaveRequests,
+  reviewLeaveRequest,
+} from '../../services/permissionService';
 import { AIBadge } from '../../components/common/AIBadge';
 
 export const LeaveReviewScreen = () => {
-  const { user } = useAuth();
+  const { userProfile } = useAuth();
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
@@ -25,7 +30,11 @@ export const LeaveReviewScreen = () => {
         setRequests(data);
         setLoading(false);
       },
-      () => setLoading(false)
+      (error) => {
+        console.error('Gagal memuat pengajuan:', error);
+        setLoading(false);
+        Alert.alert('Gagal', 'Tidak dapat mengambil data pengajuan izin.');
+      }
     );
 
     return () => unsubscribe();
@@ -33,6 +42,7 @@ export const LeaveReviewScreen = () => {
 
   const handleReview = (requestId, decision) => {
     const label = decision === 'approved' ? 'MENYETUJUI' : 'MENOLAK';
+
     Alert.alert(
       'Konfirmasi Keputusan',
       `Apakah Anda yakin ingin ${label} pengajuan izin praktikan ini?`,
@@ -42,14 +52,20 @@ export const LeaveReviewScreen = () => {
           text: 'Ya, Simpan',
           onPress: async () => {
             setProcessingId(requestId);
+
             try {
               await reviewLeaveRequest(
                 requestId,
                 decision,
-                user?.name || user?.displayName || 'Asisten'
+                userProfile?.nama
               );
+
+              Alert.alert('Berhasil', 'Keputusan berhasil disimpan.');
             } catch (error) {
-              Alert.alert('Gagal', 'Tidak dapat menyimpan keputusan ke Firestore.');
+              Alert.alert(
+                'Gagal',
+                error.message || 'Tidak dapat menyimpan keputusan.'
+              );
             } finally {
               setProcessingId(null);
             }
@@ -63,29 +79,41 @@ export const LeaveReviewScreen = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>Memuat daftar pengajuan izin...</Text>
+        <Text style={styles.loadingText}>
+          Memuat daftar pengajuan izin...
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Pemeriksaan Izin Praktikan</Text>
+      <Text style={styles.headerTitle}>
+        Pemeriksaan Izin Praktikan
+      </Text>
+
       <FlatList
         data={requests}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>Belum ada pengajuan izin yang masuk.</Text>
+            <Text style={styles.emptyText}>
+              Belum ada pengajuan izin yang masuk.
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.headerRow}>
               <View>
-                <Text style={styles.studentName}>{item.studentName}</Text>
-                <Text style={styles.studentNim}>NIM: {item.studentNim}</Text>
+                <Text style={styles.studentName}>
+                  {item.studentName}
+                </Text>
+                <Text style={styles.studentNim}>
+                  NIM: {item.studentNim}
+                </Text>
               </View>
+
               <Text
                 style={[
                   styles.statusLabel,
@@ -93,14 +121,24 @@ export const LeaveReviewScreen = () => {
                   item.status === 'rejected' && { color: '#DC2626' },
                 ]}
               >
-                {item.status.toUpperCase()}
+                {item.status?.toUpperCase()}
               </Text>
             </View>
 
-            <Text style={styles.sessionInfo}>Sesi: {item.sessionName}</Text>
-            <Text style={styles.reasonBox}>"{item.reason}"</Text>
+            <Text style={styles.sessionInfo}>
+              Sesi: {item.sessionName}
+            </Text>
 
-            <AIBadge category={item.aiCategory} confidence={item.aiConfidence} />
+            <Text style={styles.reasonBox}>
+              "{item.reason}"
+            </Text>
+
+            {/* Hasil analisis sentimen AI EDOM */}
+            <AIBadge
+              category={item.aiCategory}
+              status={item.aiStatus}
+              experimental={item.aiExperimental}
+            />
 
             {item.status === 'pending' ? (
               <View style={styles.actionRow}>
@@ -114,6 +152,7 @@ export const LeaveReviewScreen = () => {
                     >
                       <Text style={styles.rejectBtnText}>Tolak</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                       style={[styles.actionBtn, styles.approveBtn]}
                       onPress={() => handleReview(item.id, 'approved')}
@@ -124,7 +163,9 @@ export const LeaveReviewScreen = () => {
                 )}
               </View>
             ) : (
-              <Text style={styles.reviewedByText}>Diputuskan oleh: {item.reviewedBy}</Text>
+              <Text style={styles.reviewedByText}>
+                Diputuskan oleh: {item.reviewedBy || 'Asisten'}
+              </Text>
             )}
           </View>
         )}

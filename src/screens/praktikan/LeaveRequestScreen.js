@@ -14,10 +14,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { subscribeToSessions } from '../../services/firestoreService';
 import { submitLeaveRequest } from '../../services/permissionService';
+import { analyzeSentiment } from '../../services/aiService';
 
 export const LeaveRequestScreen = ({ navigation, route }) => {
-  // user berisi data Firebase Authentication
-  // userProfile berisi nama, NIM, dan kelas dari Firestore
   const { user, userProfile } = useAuth();
 
   const [sessions, setSessions] = useState([]);
@@ -32,7 +31,6 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
   useEffect(() => {
     const unsubscribe = subscribeToSessions(
       (data) => {
-        // Hanya tampilkan sesi yang sedang dibuka
         const activeSessions = data.filter(
           (item) =>
             item.status === 'open' ||
@@ -42,7 +40,6 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
         setSessions(activeSessions);
         setLoadingSessions(false);
 
-        // Pilih sesi dari halaman sebelumnya jika masih tersedia
         if (
           route?.params?.session?.id &&
           activeSessions.some(
@@ -55,30 +52,39 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
       (error) => {
         console.error('Gagal mengambil sesi:', error);
         setLoadingSessions(false);
-        Alert.alert('Gagal Memuat Sesi', 'Tidak dapat mengambil data sesi praktikum.');
+
+        Alert.alert(
+          'Gagal Memuat Sesi',
+          'Tidak dapat mengambil data sesi praktikum.'
+        );
       }
     );
 
-    // Hentikan listener saat halaman ditutup
     return () => unsubscribe();
   }, []);
 
-  // Mencari sesi yang dipilih oleh Praktikan
+  // Mencari sesi yang dipilih
   const selectedSession = sessions.find(
     (item) => item.id === selectedSessionId
   );
 
-  // Mengirim pengajuan izin ke Firestore
+  // Mengirim pengajuan izin dan menganalisis sentimen
   const handleSubmit = async () => {
     const trimmedReason = reason.trim();
 
     if (!user?.uid || !userProfile) {
-      Alert.alert('Profil Tidak Tersedia', 'Silakan login kembali.');
+      Alert.alert(
+        'Profil Tidak Tersedia',
+        'Silakan login kembali.'
+      );
       return;
     }
 
     if (!selectedSession) {
-      Alert.alert('Sesi Belum Dipilih', 'Pilih sesi praktikum terlebih dahulu.');
+      Alert.alert(
+        'Sesi Belum Dipilih',
+        'Pilih sesi praktikum terlebih dahulu.'
+      );
       return;
     }
 
@@ -93,7 +99,26 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
     setSubmitting(true);
 
     try {
-      // Simpan identitas, sesi, alasan, dan status awal ke Firestore
+      // Analisis sentimen menggunakan model AI EDOM lokal
+      let aiResult;
+
+      try {
+        aiResult = analyzeSentiment(trimmedReason);
+
+        console.log('[AI EDOM] Hasil analisis:', aiResult);
+      } catch (aiError) {
+        console.error('[AI EDOM] Gagal menganalisis:', aiError);
+
+        // Pengajuan tetap dapat dilakukan jika analisis gagal
+        aiResult = {
+          category: null,
+          status: 'analysis_error',
+          experimental: true,
+          scoreType: null,
+        };
+      }
+
+      // Menyimpan pengajuan beserta hasil analisis AI
       await submitLeaveRequest({
         studentId: user.uid,
         studentName: userProfile.nama,
@@ -105,6 +130,12 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
           selectedSession.name ||
           'Sesi Praktikum',
         reason: trimmedReason,
+
+        // Data hasil klasifikasi EDOM
+        aiCategory: aiResult.category || null,
+        aiStatus: aiResult.status || 'unknown',
+        aiExperimental: aiResult.experimental ?? true,
+        aiScoreType: aiResult.scoreType || null,
       });
 
       Alert.alert(
@@ -124,7 +155,8 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
 
       Alert.alert(
         'Gagal Mengirim',
-        error.message || 'Pengajuan izin gagal disimpan. Silakan coba kembali.'
+        error.message ||
+          'Pengajuan izin gagal disimpan. Silakan coba kembali.'
       );
     } finally {
       setSubmitting(false);
@@ -133,11 +165,15 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Pengajuan Izin Praktikum</Text>
+      <Text style={styles.title}>
+        Pengajuan Izin Praktikum
+      </Text>
 
-      {/* Pilihan sesi yang sedang dibuka */}
+      {/* Pilihan sesi praktikum */}
       <View style={styles.card}>
-        <Text style={styles.label}>Pilih Sesi Praktikum</Text>
+        <Text style={styles.label}>
+          Pilih Sesi Praktikum
+        </Text>
 
         {loadingSessions ? (
           <ActivityIndicator color="#2563EB" />
@@ -185,7 +221,9 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
 
       {/* Form alasan izin */}
       <View style={styles.card}>
-        <Text style={styles.label}>Alasan Ketidakhadiran</Text>
+        <Text style={styles.label}>
+          Alasan Ketidakhadiran
+        </Text>
 
         <TextInput
           style={styles.input}
@@ -211,15 +249,21 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
             styles.submitBtnDisabled,
         ]}
         onPress={handleSubmit}
-        disabled={submitting || loadingSessions || sessions.length === 0}
+        disabled={
+          submitting || loadingSessions || sessions.length === 0
+        }
       >
         {submitting ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color="#FFFFFF" size="small" />
-            <Text style={styles.submitBtnText}> Mengirim Pengajuan...</Text>
+            <Text style={styles.submitBtnText}>
+              {' '}Menganalisis dan Mengirim...
+            </Text>
           </View>
         ) : (
-          <Text style={styles.submitBtnText}>Kirim Pengajuan Izin</Text>
+          <Text style={styles.submitBtnText}>
+            Kirim Pengajuan Izin
+          </Text>
         )}
       </TouchableOpacity>
     </ScrollView>
