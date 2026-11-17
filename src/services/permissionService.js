@@ -14,16 +14,15 @@ import { db } from '../config/firebase';
 
 const COLLECTION_NAME = 'leave_requests';
 
-// Menyimpan pengajuan izin baru dari Praktikan
+// Membuat pengajuan izin baru dari Praktikan
 export const submitLeaveRequest = async (payload) => {
-  // Validasi data pengajuan
   if (
     !payload.studentId ||
     !payload.studentName ||
     !payload.studentNim ||
     !payload.sessionId ||
     !payload.sessionName ||
-    !payload.reason
+    !payload.reason?.trim()
   ) {
     throw new Error('Data pengajuan izin belum lengkap.');
   }
@@ -37,15 +36,14 @@ export const submitLeaveRequest = async (payload) => {
         studentNim: payload.studentNim,
         sessionId: payload.sessionId,
         sessionName: payload.sessionName,
-        reason: payload.reason,
+        reason: payload.reason.trim(),
 
-        // Hasil klasifikasi sentimen AI EDOM
+        // Hasil analisis AI EDOM
         aiCategory: payload.aiCategory || null,
         aiStatus: payload.aiStatus || 'unknown',
         aiExperimental: payload.aiExperimental ?? true,
         aiScoreType: payload.aiScoreType || null,
 
-        // Status awal pengajuan
         status: 'pending',
         reviewedBy: null,
         reviewedAt: null,
@@ -67,7 +65,7 @@ export const submitLeaveRequest = async (payload) => {
   }
 };
 
-// Memantau pengajuan milik Praktikan yang sedang login
+// Memantau pengajuan milik Praktikan
 export const subscribeStudentLeaveRequests = (
   studentId,
   onUpdate,
@@ -105,7 +103,7 @@ export const subscribeStudentLeaveRequests = (
   );
 };
 
-// Memantau seluruh pengajuan untuk kebutuhan Asisten
+// Memantau seluruh pengajuan untuk Asisten
 export const subscribeAllLeaveRequests = (
   onUpdate,
   onError
@@ -172,7 +170,6 @@ export const reviewLeaveRequest = async (
 
       const requestData = requestSnapshot.data();
 
-      // Pengajuan yang sudah diputuskan tidak boleh diproses ulang
       if (requestData.status !== 'pending') {
         throw new Error(
           'Pengajuan ini sudah pernah diputuskan.'

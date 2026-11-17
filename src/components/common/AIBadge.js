@@ -1,28 +1,54 @@
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 export const AIBadge = ({ category, experimental }) => {
   const schemes = {
-    positif: { bg: '#D1FAE5', text: '#065F46' },
-    netral: { bg: '#F3F4F6', text: '#374151' },
-    negatif: { bg: '#FEE2E2', text: '#991B1B' },
+    positif: {
+      label: 'Positif',
+      bg: '#D1FAE5',
+      text: '#065F46',
+      border: '#6EE7B7',
+    },
+    netral: {
+      label: 'Netral',
+      bg: '#FEF3C7',
+      text: '#92400E',
+      border: '#FCD34D',
+    },
+    negatif: {
+      label: 'Negatif',
+      bg: '#FEE2E2',
+      text: '#991B1B',
+      border: '#FCA5A5',
+    },
   };
 
-  const validCategory = category?.toLowerCase();
-  const scheme = schemes[validCategory];
+  const normalized = category?.toLowerCase();
+  const scheme = schemes[normalized];
+
+  if (!category || !scheme) {
+    return (
+      <View style={[styles.badge, styles.fallback]}>
+        <Text style={[styles.text, { color: '#92400E' }]}>
+          Sentimen EDOM: Perlu Verifikasi Manual
+          {experimental ? ' (Eksperimental)' : ''}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View
       style={[
         styles.badge,
-        { backgroundColor: scheme?.bg || '#FEF3C7' },
+        {
+          backgroundColor: scheme.bg,
+          borderColor: scheme.border,
+        },
       ]}
     >
-      <Text style={[styles.text, { color: scheme?.text || '#92400E' }]}>
-        {scheme
-          ? `Sentimen EDOM: ${validCategory}`
-          : 'Tidak dapat diklasifikasikan — verifikasi manual'}
+      <Text style={[styles.text, { color: scheme.text }]}>
+        Sentimen EDOM: {scheme.label}
         {experimental ? ' (Eksperimental)' : ''}
       </Text>
     </View>
@@ -35,7 +61,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
+    borderWidth: 1,
     marginVertical: 6,
+  },
+  fallback: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FCD34D',
   },
   text: {
     fontSize: 12,
