@@ -1,13 +1,8 @@
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-export const AIBadge = ({ category, status, experimental }) => {
-  if (!category && !status) return null;
-
-  const normalized = category?.toLowerCase();
-
-  const sentiment = {
+export const AIBadge = ({ category, experimental }) => {
+  const schemes = {
     positif: {
       label: 'Positif',
       bg: '#D1FAE5',
@@ -28,13 +23,15 @@ export const AIBadge = ({ category, status, experimental }) => {
     },
   };
 
-  const scheme = sentiment[normalized];
+  const normalized = category?.toLowerCase();
+  const scheme = schemes[normalized];
 
-  if (!scheme) {
+  if (!category || !scheme) {
     return (
       <View style={[styles.badge, styles.fallback]}>
         <Text style={[styles.text, { color: '#92400E' }]}>
           Sentimen EDOM: Perlu Verifikasi Manual
+          {experimental ? ' (Eksperimental)' : ''}
         </Text>
       </View>
     );

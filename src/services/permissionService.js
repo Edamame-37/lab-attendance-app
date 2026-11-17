@@ -1,8 +1,6 @@
-
 import {
   collection,
   addDoc,
-  updateDoc,
   doc,
   query,
   where,
@@ -30,24 +28,39 @@ export const submitLeaveRequest = async (payload) => {
   }
 
   try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-      studentId: payload.studentId,
-      studentName: payload.studentName,
-      studentNim: payload.studentNim,
-      sessionId: payload.sessionId,
-      sessionName: payload.sessionName,
-      reason: payload.reason.trim(),
-      aiCategory: null,
-      aiConfidence: null,
-      status: 'pending',
-      reviewedBy: null,
-      reviewedAt: null,
-      createdAt: serverTimestamp(),
-    });
+    const docRef = await addDoc(
+      collection(db, COLLECTION_NAME),
+      {
+        studentId: payload.studentId,
+        studentName: payload.studentName,
+        studentNim: payload.studentNim,
+        sessionId: payload.sessionId,
+        sessionName: payload.sessionName,
+        reason: payload.reason.trim(),
 
-    return { success: true, id: docRef.id };
+        // Hasil analisis AI EDOM
+        aiCategory: payload.aiCategory || null,
+        aiStatus: payload.aiStatus || 'unknown',
+        aiExperimental: payload.aiExperimental ?? true,
+        aiScoreType: payload.aiScoreType || null,
+
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: serverTimestamp(),
+      }
+    );
+
+    return {
+      success: true,
+      id: docRef.id,
+    };
   } catch (error) {
-    console.error('[permissionService] Gagal menyimpan pengajuan:', error);
+    console.error(
+      '[permissionService] Gagal menyimpan pengajuan:',
+      error
+    );
+
     throw error;
   }
 };
@@ -80,14 +93,21 @@ export const subscribeStudentLeaveRequests = (
       onUpdate(items);
     },
     (error) => {
-      console.error('[permissionService] Gagal memantau pengajuan:', error);
+      console.error(
+        '[permissionService] Gagal memantau pengajuan:',
+        error
+      );
+
       if (onError) onError(error);
     }
   );
 };
 
 // Memantau seluruh pengajuan untuk Asisten
-export const subscribeAllLeaveRequests = (onUpdate, onError) => {
+export const subscribeAllLeaveRequests = (
+  onUpdate,
+  onError
+) => {
   const q = query(
     collection(db, COLLECTION_NAME),
     orderBy('createdAt', 'desc')
@@ -108,12 +128,13 @@ export const subscribeAllLeaveRequests = (onUpdate, onError) => {
         '[permissionService] Gagal memantau seluruh pengajuan:',
         error
       );
+
       if (onError) onError(error);
     }
   );
 };
 
-// Memproses keputusan Asisten satu kali untuk setiap pengajuan
+// Memproses keputusan Asisten menggunakan Firestore Transaction
 export const reviewLeaveRequest = async (
   requestId,
   decision,
@@ -134,7 +155,11 @@ export const reviewLeaveRequest = async (
   }
 
   try {
-    const requestRef = doc(db, COLLECTION_NAME, requestId);
+    const requestRef = doc(
+      db,
+      COLLECTION_NAME,
+      requestId
+    );
 
     await runTransaction(db, async (transaction) => {
       const requestSnapshot = await transaction.get(requestRef);
@@ -146,7 +171,9 @@ export const reviewLeaveRequest = async (
       const requestData = requestSnapshot.data();
 
       if (requestData.status !== 'pending') {
-        throw new Error('Pengajuan ini sudah pernah diputuskan.');
+        throw new Error(
+          'Pengajuan ini sudah pernah diputuskan.'
+        );
       }
 
       transaction.update(requestRef, {
@@ -158,7 +185,11 @@ export const reviewLeaveRequest = async (
 
     return { success: true };
   } catch (error) {
-    console.error('[permissionService] Gagal memproses pengajuan:', error);
+    console.error(
+      '[permissionService] Gagal memproses pengajuan:',
+      error
+    );
+
     throw error;
   }
 };

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -20,17 +19,13 @@ import { AIBadge } from '../../components/common/AIBadge';
 const formatDate = (timestamp) => {
   if (!timestamp) return '-';
 
-  const date =
-    typeof timestamp.toDate === 'function'
-      ? timestamp.toDate()
-      : new Date(timestamp);
+  const date = timestamp.toDate
+    ? timestamp.toDate()
+    : new Date(timestamp);
 
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleString('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return Number.isNaN(date.getTime())
+    ? '-'
+    : date.toLocaleString('id-ID');
 };
 
 const getStatusLabel = (status) => {
@@ -60,7 +55,7 @@ export const LeaveReviewScreen = () => {
         setLoading(false);
       },
       (error) => {
-        console.error('Gagal mengambil pengajuan:', error);
+        console.error('Gagal memuat pengajuan:', error);
         setErrorMessage('Tidak dapat memuat daftar pengajuan izin.');
         setLoading(false);
       }
@@ -99,9 +94,8 @@ export const LeaveReviewScreen = () => {
               console.error('Gagal menyimpan keputusan:', error);
 
               Alert.alert(
-                'Gagal Memproses',
-                error.message ||
-                  'Keputusan tidak dapat disimpan. Silakan coba kembali.'
+                'Gagal',
+                error.message || 'Keputusan tidak dapat disimpan.'
               );
             } finally {
               setProcessingId(null);
@@ -149,13 +143,10 @@ export const LeaveReviewScreen = () => {
           {item.reason || 'Alasan tidak tersedia'}
         </Text>
 
-        {item.aiCategory ? (
-          <AIBadge
-            category={item.aiCategory}
-            status={item.aiStatus}
-            experimental={item.aiExperimental}
-          />
-        ) : null}
+        <AIBadge
+          category={item.aiCategory}
+          experimental={item.aiExperimental}
+        />
 
         {isPending ? (
           <View style={styles.actionRow}>
@@ -197,14 +188,18 @@ export const LeaveReviewScreen = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>Memuat daftar pengajuan izin...</Text>
+        <Text style={styles.loadingText}>
+          Memuat daftar pengajuan izin...
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Pemeriksaan Izin Praktikan</Text>
+      <Text style={styles.headerTitle}>
+        Pemeriksaan Izin Praktikan
+      </Text>
 
       {errorMessage ? (
         <Text style={styles.errorText}>{errorMessage}</Text>
