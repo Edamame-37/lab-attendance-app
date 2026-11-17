@@ -1,8 +1,9 @@
 /**
  * @file src/services/firestoreService.js
  * @author Farrel (feature/lab-attendance-firestore)
- * @description Layanan Firestore terpusat untuk CRUD Sesi/Kelas, Presensi Terintegrasi,
+ * @description Layanan Firestore terpusat untuk CRUD Sesi & Kelas, Presensi Terintegrasi 1x,
  * dan Sinkronisasi Real-Time (SRS-FT-02, SRS-FT-03, SRS-FT-04).
+ * Sesuai panduan revisi resmi ppk praktikum.pdf.
  */
 
 import {
@@ -36,7 +37,7 @@ export const COLLECTIONS = {
  */
 
 /**
- * Mengambil semua sesi praktikum dari Firestore
+ * Mengambil seluruh sesi praktikum dari Firestore
  */
 export const getSessions = async () => {
   try {
@@ -48,7 +49,13 @@ export const getSessions = async () => {
     }));
   } catch (error) {
     console.error('Error getSessions:', error);
-    throw error;
+    // Fallback query tanpa orderBy jika index belum dibuat
+    try {
+      const fallbackSnap = await getDocs(collection(db, COLLECTIONS.SESSIONS));
+      return fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      throw error;
+    }
   }
 };
 
@@ -70,8 +77,8 @@ export const getSessionById = async (sessionId) => {
 };
 
 /**
- * Menambahkan sesi praktikum baru (Khusus Asisten)
- * @param {Object} sessionData - Data sesi (namaPraktikum, kelas, ruangLab, topikMateri, asistenId, dll)
+ * Menambahkan sesi praktikum baru ke Firestore (Khusus Asisten - SRS-FT-02)
+ * @param {Object} sessionData - Data sesi (namaPraktikum, kelas, ruangLab, topikMateri, dll)
  */
 export const createSession = async (sessionData) => {
   try {
@@ -80,20 +87,28 @@ export const createSession = async (sessionData) => {
     }
 
     const payload = {
-      namaPraktikum: sessionData.namaPraktikum,
-      topikMateri: sessionData.topikMateri || '',
-      kelas: sessionData.kelas,
-      ruangLab: sessionData.ruangLab || 'Lab Utama',
+      kodeMataKuliah: sessionData.kodeMataKuliah || 'PPK-2026',
+      namaPraktikum: sessionData.namaPraktikum.trim(),
+      topikMateri: sessionData.topikMateri ? sessionData.topikMateri.trim() : 'Praktikum Umum',
+      kelas: sessionData.kelas.trim(),
+      ruangLab: sessionData.ruangLab ? sessionData.ruangLab.trim() : 'Lab RPL 1',
       hari: sessionData.hari || 'Senin',
       jamMulai: sessionData.jamMulai || '08:00',
-      jamSelesai: sessionData.jamSelesai || '10:00',
-      namaAsisten: sessionData.namaAsisten || 'Asisten Lab',
-      asistenId: sessionData.asistenId || '',
-      status: 'closed', // 'open' | 'closed' (kompatibel 'DIBUKA' | 'DITUTUP')
-      statusSesi: 'DITUTUP',
+      jamSelesai: sessionData.jamSelesai || '10:30',
+      namaAsisten: sessionData.namaAsisten || 'Farrel (Asisten Lab)',
+      asistenId: sessionData.asistenId || 'asisten-1',
+      status: 'closed', // 'open' | 'closed'
+      statusSesi: 'DITUTUP', // 'DIBUKA' | 'DITUTUP' | 'SELESAI'
       catatanPembuka: '',
       waktuBuka: null,
       waktuTutup: null,
+      daftarPeserta: sessionData.daftarPeserta || [
+        { nim: '21120122140001', nama: 'Budi Santoso' },
+        { nim: '21120122140002', nama: 'Siti Rahma' },
+        { nim: '21120122140003', nama: 'Ahmad Fauzi' },
+        { nim: '21120122140004', nama: 'Farrel Hidayat' },
+        { nim: '21120122140005', nama: 'Dewi Lestari' },
+      ],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -107,10 +122,13 @@ export const createSession = async (sessionData) => {
 };
 
 /**
- * Mengubah data sesi praktikum
+ * Mengubah data sesi praktikum yang sudah ada (Khusus Asisten - SRS-FT-02)
  */
 export const updateSession = async (sessionId, updateData) => {
   try {
+    if (!sessionId) {
+      throw new Error('Session ID wajib diisi');
+    }
     const docRef = doc(db, COLLECTIONS.SESSIONS, sessionId);
     await updateDoc(docRef, {
       ...updateData,
@@ -124,13 +142,16 @@ export const updateSession = async (sessionId, updateData) => {
 };
 
 /**
- * Menghapus dokumen sesi praktikum
+ * Menghapus dokumen sesi praktikum dari Firestore (Khusus Asisten - SRS-FT-02)
  */
 export const deleteSession = async (sessionId) => {
   try {
+    if (!sessionId) {
+      throw new Error('Session ID wajib diisi');
+    }
     const docRef = doc(db, COLLECTIONS.SESSIONS, sessionId);
     await deleteDoc(docRef);
-    return { success: true, message: 'Sesi berhasil dihapus' };
+    return { success: true, message: 'Sesi praktikum berhasil dihapus' };
   } catch (error) {
     console.error('Error deleteSession:', error);
     return { success: false, message: error.message };
@@ -138,7 +159,7 @@ export const deleteSession = async (sessionId) => {
 };
 
 /**
- * Membuka sesi praktikum agar praktikan bisa presensi
+ * Membuka sesi praktikum agar praktikan bisa presensi (SRS-FT-02 & SRS-FT-04)
  */
 export const openSession = async (sessionId, ruangLab = '', catatan = '') => {
   try {
@@ -147,11 +168,11 @@ export const openSession = async (sessionId, ruangLab = '', catatan = '') => {
       status: 'open',
       statusSesi: 'DIBUKA',
       waktuBuka: serverTimestamp(),
-      catatanPembuka: catatan || '',
+      catatanPembuka: catatan ? catatan.trim() : '',
       updatedAt: serverTimestamp(),
     };
-    if (ruangLab) {
-      updatePayload.ruangLab = ruangLab;
+    if (ruangLab && ruangLab.trim()) {
+      updatePayload.ruangLab = ruangLab.trim();
     }
 
     await updateDoc(docRef, updatePayload);
@@ -163,7 +184,7 @@ export const openSession = async (sessionId, ruangLab = '', catatan = '') => {
 };
 
 /**
- * Menutup sesi praktikum dan mengunci presensi
+ * Menutup sesi praktikum dan mengunci presensi (SRS-FT-02 & SRS-FT-04)
  */
 export const closeSession = async (sessionId) => {
   try {
@@ -182,6 +203,97 @@ export const closeSession = async (sessionId) => {
 };
 
 /**
+ * Mengisi data awal (Seed Data) master praktikum, kelas, dan peserta jika database masih kosong (SRS-FT-02)
+ */
+export const seedInitialPracticalData = async () => {
+  try {
+    const initialSessions = [
+      {
+        kodeMataKuliah: 'PPK-301',
+        namaPraktikum: 'Praktikum Pemrograman Perangkat Keras',
+        topikMateri: 'Modul 3: Integrasi Cloud Firestore & Realtime Sync',
+        kelas: 'TI-3A',
+        ruangLab: 'Laboratorium Sistem Tertanam',
+        hari: 'Senin',
+        jamMulai: '08:00',
+        jamSelesai: '10:30',
+        namaAsisten: 'Farrel Hidayat',
+        asistenId: 'asisten-farrel',
+        status: 'open',
+        statusSesi: 'DIBUKA',
+        catatanPembuka: 'Silakan segera presensi melalui aplikasi.',
+        waktuBuka: serverTimestamp(),
+        waktuTutup: null,
+        daftarPeserta: [
+          { nim: '21120122140001', nama: 'Budi Santoso' },
+          { nim: '21120122140002', nama: 'Siti Rahmawati' },
+          { nim: '21120122140003', nama: 'Ahmad Fauzan' },
+          { nim: '21120122140004', nama: 'Rian Kurniawan' },
+          { nim: '21120122140005', nama: 'Nadia Putri' },
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {
+        kodeMataKuliah: 'JARKOM-202',
+        namaPraktikum: 'Praktikum Jaringan Komputer',
+        topikMateri: 'Modul 2: Konfigurasi Routing Dinamis OSPF',
+        kelas: 'TI-3B',
+        ruangLab: 'Laboratorium Jaringan Komputer',
+        hari: 'Rabu',
+        jamMulai: '13:00',
+        jamSelesai: '15:30',
+        namaAsisten: 'Farrel Hidayat',
+        asistenId: 'asisten-farrel',
+        status: 'closed',
+        statusSesi: 'DITUTUP',
+        catatanPembuka: '',
+        waktuBuka: null,
+        waktuTutup: null,
+        daftarPeserta: [
+          { nim: '21120122140010', nama: 'Dimas Anggara' },
+          { nim: '21120122140011', nama: 'Alisa Zahra' },
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {
+        kodeMataKuliah: 'BD-101',
+        namaPraktikum: 'Praktikum Basis Data Lanjut',
+        topikMateri: 'Modul 1: Query Optimasi & Indeks NoSQL',
+        kelas: 'TI-3A',
+        ruangLab: 'Laboratorium Basis Data',
+        hari: 'Kamis',
+        jamMulai: '10:00',
+        jamSelesai: '12:30',
+        namaAsisten: 'Farrel Hidayat',
+        asistenId: 'asisten-farrel',
+        status: 'closed',
+        statusSesi: 'DITUTUP',
+        catatanPembuka: '',
+        waktuBuka: null,
+        waktuTutup: null,
+        daftarPeserta: [
+          { nim: '21120122140001', nama: 'Budi Santoso' },
+          { nim: '21120122140002', nama: 'Siti Rahmawati' },
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+    ];
+
+    for (const item of initialSessions) {
+      await addDoc(collection(db, COLLECTIONS.SESSIONS), item);
+    }
+
+    return { success: true, message: 'Data awal praktikum, kelas, dan peserta berhasil dimuat ke Firestore!' };
+  } catch (error) {
+    console.error('Error seedInitialPracticalData:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+/**
  * ============================================================================
  * 2. PRESENSI TERINTEGRASI & VALIDASI 1x PER SESI (SRS-FT-03)
  * ============================================================================
@@ -194,8 +306,7 @@ export const checkExistingAttendance = async (sessionId, studentId) => {
   try {
     if (!sessionId || !studentId) return false;
 
-    // Dokumen presensi dapat menggunakan ID gabungan `${sessionId}_${studentId}`
-    // atau query where
+    // 1. Cek langsung via deterministic doc ID: `${sessionId}_${studentId}`
     const docRef = doc(db, COLLECTIONS.ATTENDANCES, `${sessionId}_${studentId}`);
     const docSnap = await getDoc(docRef);
 
@@ -203,7 +314,7 @@ export const checkExistingAttendance = async (sessionId, studentId) => {
       return true;
     }
 
-    // Fallback: query where
+    // 2. Fallback query where
     const q = query(
       collection(db, COLLECTIONS.ATTENDANCES),
       where('sessionId', '==', sessionId),
@@ -218,7 +329,7 @@ export const checkExistingAttendance = async (sessionId, studentId) => {
 };
 
 /**
- * Mencatat presensi praktikan ke Firestore dengan pencegahan duplikasi
+ * Mencatat presensi praktikan ke Firestore dengan pencegahan presensi ganda (SRS-FT-03)
  */
 export const submitAttendance = async ({
   sessionId,
@@ -234,45 +345,54 @@ export const submitAttendance = async ({
       throw new Error('Sesi ID dan Mahasiswa ID wajib disertakan');
     }
 
-    // 1. Validasi status sesi aktif
+    // 1. Validasi keberadaan & status sesi
     const sessionSnap = await getDoc(doc(db, COLLECTIONS.SESSIONS, sessionId));
     if (!sessionSnap.exists()) {
-      throw new Error('Sesi praktikum tidak ditemukan');
+      throw new Error('Sesi praktikum tidak ditemukan di sistem');
     }
     const sessionData = sessionSnap.data();
     const isSesiOpen = sessionData.status === 'open' || sessionData.statusSesi === 'DIBUKA';
 
     if (!isSesiOpen) {
-      throw new Error('Sesi praktikum saat ini belum dibuka atau sudah ditutup');
+      return {
+        success: false,
+        message: 'Presensi ditolak: Sesi praktikum saat ini belum dibuka atau sudah ditutup oleh asisten.',
+      };
     }
 
-    // 2. Validasi pencegahan duplikasi presensi (hanya 1x per sesi)
+    // 2. Validasi pencegahan presensi ganda (SRS-FT-03: tidak dapat presensi 2x pada sesi yang sama)
     const alreadyAttended = await checkExistingAttendance(sessionId, studentId);
     if (alreadyAttended) {
       return {
         success: false,
-        message: 'Anda sudah melakukan presensi untuk sesi ini. Presensi hanya dapat dilakukan satu kali.',
+        message: 'Presensi ditolak: Anda sudah melakukan presensi pada sesi ini. Presensi hanya diperbolehkan satu kali.',
       };
     }
 
-    // 3. Gunakan deterministic document ID untuk garansi idempotency: `${sessionId}_${studentId}`
+    // 3. Gunakan Deterministic Doc ID `${sessionId}_${studentId}` untuk proteksi idempotensi level basis data
     const attendanceDocId = `${sessionId}_${studentId}`;
     const attendanceDocRef = doc(db, COLLECTIONS.ATTENDANCES, attendanceDocId);
+
+    const now = new Date();
+    const jamStr = String(now.getHours()).padStart(2, '0');
+    const menitStr = String(now.getMinutes()).padStart(2, '0');
+    const detikStr = String(now.getSeconds()).padStart(2, '0');
+    const waktuPresensiStr = `${jamStr}:${menitStr}:${detikStr} WIB`;
 
     const payload = {
       id: attendanceDocId,
       sessionId,
-      namaPraktikum: sessionData.namaPraktikum || '',
+      namaPraktikum: sessionData.namaPraktikum || 'Praktikum',
       topikMateri: sessionData.topikMateri || '',
       studentId,
       studentName: studentName || 'Praktikan',
       studentNim: studentNim || '-',
-      studentClass: studentClass || sessionData.kelas || '',
+      studentClass: studentClass || sessionData.kelas || 'A',
       statusKehadiran: statusKehadiran.toUpperCase(), // 'HADIR' | 'IZIN' | 'SAKIT'
-      catatan: catatan || '',
+      catatan: catatan ? catatan.trim() : '',
       timestamp: serverTimestamp(),
-      waktuPresensi: new Date().toLocaleTimeString('id-ID', { hour12: false }) + ' WIB',
-      tanggal: new Date().toISOString().split('T')[0],
+      waktuPresensi: waktuPresensiStr,
+      tanggal: now.toISOString().split('T')[0],
     };
 
     await setDoc(attendanceDocRef, payload);
@@ -280,30 +400,31 @@ export const submitAttendance = async ({
     return {
       success: true,
       id: attendanceDocId,
-      message: 'Presensi berhasil dicatat!',
+      message: 'Presensi Anda berhasil dicatat ke dalam Cloud Firestore!',
       data: payload,
     };
   } catch (error) {
     console.error('Error submitAttendance:', error);
     return {
       success: false,
-      message: error.message || 'Gagal menyimpan presensi',
+      message: error.message || 'Gagal menyimpan presensi ke Firestore',
     };
   }
 };
 
 /**
- * Mengambil riwayat kehadiran seorang praktikan
+ * Mengambil riwayat kehadiran seorang praktikan dari Firestore
  */
 export const getStudentAttendanceHistory = async (studentId) => {
   try {
     const q = query(
       collection(db, COLLECTIONS.ATTENDANCES),
-      where('studentId', '==', studentId),
-      orderBy('timestamp', 'desc')
+      where('studentId', '==', studentId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    // Sort descending by timestamp or tanggal
+    return list.sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
   } catch (error) {
     console.error('Error getStudentAttendanceHistory:', error);
     return [];
@@ -362,7 +483,7 @@ export const subscribeToActiveSessions = (onUpdate, onError) => {
 };
 
 /**
- * Mendengarkan daftar presensi praktikan pada satu sesi tertentu secara real-time (Untuk Asisten)
+ * Mendengarkan daftar presensi pada satu sesi tertentu secara real-time (Untuk Asisten)
  */
 export const subscribeToSessionAttendances = (sessionId, onUpdate, onError) => {
   if (!sessionId) {
@@ -416,4 +537,3 @@ export const subscribeToUserAttendance = (sessionId, studentId, onUpdate, onErro
     }
   );
 };
-

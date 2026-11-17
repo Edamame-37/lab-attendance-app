@@ -93,36 +93,74 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
-      {/* BANNER TESTING MODUL FARREL (SPRINT 2) */}
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => router.push('/test-farrel')}
+      {/* BANNER REVISI SPRINT 2 - MODUL FARREL (SRS-FT-02, 03, 04) */}
+      <View
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: tema.accentSurface || '#ECFDF5',
-          borderColor: tema.accent,
+          backgroundColor: tema.surface,
+          borderColor: tema.border,
           borderWidth: 1,
-          borderRadius: 12,
-          paddingHorizontal: 14,
-          paddingVertical: 10,
+          borderRadius: 14,
+          padding: 12,
           marginBottom: 14,
+          gap: 8,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="flask-outline" size={18} color={tema.accent} />
-          <View>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: tema.accent }}>
-              Uji Coba Modul Farrel (Sprint 2)
-            </Text>
-            <Text style={{ fontSize: 11, color: tema.textSecondary }}>
-              CRUD Sesi Firestore & Presensi Real-Time
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="cube-outline" size={18} color={tema.accent} />
+            <Text style={{ fontSize: 13, fontWeight: '800', color: tema.textPrimary }}>
+              Modul Firestore Sprint 2 (Farrel)
             </Text>
           </View>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: tema.accent, backgroundColor: tema.accentSurface || '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+            SRS-02 • 03 • 04
+          </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={tema.accent} />
-      </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push('/sesi' as any)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              backgroundColor: tema.accent,
+              paddingVertical: 9,
+              borderRadius: 8,
+            }}
+          >
+            <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+              Kelola Sesi (sesi.tsx)
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push('/presensi-firestore' as any)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              backgroundColor: tema.surfaceRaised,
+              borderColor: tema.border,
+              borderWidth: 1,
+              paddingVertical: 9,
+              borderRadius: 8,
+            }}
+          >
+            <Ionicons name="checkbox-outline" size={15} color={tema.textPrimary} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
+              Presensi (presensi-firestore)
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* SECTION 1: SESI SEDANG BERLANGSUNG */}
       {sesiUtama && (

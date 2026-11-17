@@ -16,6 +16,7 @@ import {
   updateSession,
   deleteSession,
   submitAttendance,
+  seedInitialPracticalData,
 } from '../services/firestoreService';
 
 /**
@@ -230,10 +231,26 @@ export const useAttendance = (sessionId = '', studentId = '') => {
     return res;
   }, []);
 
+  // Action: Ubah Sesi (Asisten)
+  const handleUpdateSession = useCallback(async (targetSessionId, updateData) => {
+    setActionLoading(true);
+    const res = await updateSession(targetSessionId, updateData);
+    setActionLoading(false);
+    return res;
+  }, []);
+
   // Action: Hapus Sesi (Asisten)
   const handleDeleteSession = useCallback(async (targetSessionId) => {
     setActionLoading(true);
     const res = await deleteSession(targetSessionId);
+    setActionLoading(false);
+    return res;
+  }, []);
+
+  // Action: Seed Data Awal (Asisten)
+  const handleSeedData = useCallback(async () => {
+    setActionLoading(true);
+    const res = await seedInitialPracticalData();
     setActionLoading(false);
     return res;
   }, []);
@@ -254,7 +271,9 @@ export const useAttendance = (sessionId = '', studentId = '') => {
     handleCloseSession,
     handleRecordAttendance,
     handleCreateSession,
+    handleUpdateSession,
     handleDeleteSession,
+    handleSeedData,
   };
 };
 
