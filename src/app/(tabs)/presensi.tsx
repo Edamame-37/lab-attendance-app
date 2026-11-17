@@ -19,6 +19,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import type { StatusKehadiran } from '@/types';
@@ -36,6 +37,7 @@ import {
 import { radius, spacing } from '@/theme';
 
 export default function PresensiScreen(): React.JSX.Element {
+  const router = useRouter();
   const {
     peranAktif,
     penggunaAktif,
@@ -151,6 +153,37 @@ export default function PresensiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
+      {/* BANNER KE PRESENSI CLOUD FIRESTORE RESMI (SRS-FT-03) */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => router.push('/presensi-firestore' as any)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: tema.statusHadirBg || '#DCFCE7',
+          borderColor: tema.statusHadir || '#16A34A',
+          borderWidth: 1,
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          marginBottom: 14,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+          <Ionicons name="cloud-upload-outline" size={20} color={tema.statusHadir || '#16A34A'} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: tema.statusHadir || '#16A34A' }}>
+              Buka Presensi Cloud Firestore (SRS-FT-03)
+            </Text>
+            <Text style={{ fontSize: 11, color: tema.textSecondary }}>
+              Pencatatan kehadiran live Firestore dengan validasi anti-duplikasi 1x
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={tema.statusHadir || '#16A34A'} />
+      </TouchableOpacity>
+
       {/* SECTION 1: FORMULIR PRESENSI */}
       <SectionHeader title="Formulir Kehadiran" isFirst />
 
