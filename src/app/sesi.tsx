@@ -10,7 +10,7 @@
  * @author Farrel (feature/lab-attendance-firestore)
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -27,8 +27,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
-import useAttendance from '@/hooks/useAttendance';
-import AttendanceRecapCard from '@/components/asisten/AttendanceRecapCard';
+import { useAttendance } from '@/hooks/useAttendance';
+import { AttendanceRecapCard } from '@/components/asisten/AttendanceRecapCard';
+import { subscribeToLabs } from '@/services/labService';
 
 export default function SesiScreen(): React.JSX.Element {
   const router = useRouter();
@@ -55,6 +56,7 @@ export default function SesiScreen(): React.JSX.Element {
   const [formTopik, setFormTopik] = useState<string>('');
   const [formKelas, setFormKelas] = useState<string>('TI-3A');
   const [formRuangLab, setFormRuangLab] = useState<string>('Lab RPL 1');
+  const [formLabId, setFormLabId] = useState<string>('');
   const [formHari, setFormHari] = useState<string>('Senin');
   const [formJamMulai, setFormJamMulai] = useState<string>('08:00');
   const [formJamSelesai, setFormJamSelesai] = useState<string>('10:30');
@@ -78,6 +80,17 @@ export default function SesiScreen(): React.JSX.Element {
   const handleDeleteSession = attendanceHook.handleDeleteSession;
   const handleSeedData = attendanceHook.handleSeedData;
 
+  const [activeLabs, setActiveLabs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToLabs(
+      (labs: any[]) => setActiveLabs(labs),
+      (labError: Error) => console.warn('Gagal memuat laboratorium:', labError),
+      { activeOnly: true }
+    );
+    return unsubscribe;
+  }, []);
+
   // Cari sesi aktif saat ini
   const activeSelectedSession: any =
     sessions.find((s: any) => s.id === selectedSessionId) ||
@@ -86,17 +99,20 @@ export default function SesiScreen(): React.JSX.Element {
 
   // Handler Buat Sesi Baru (SRS-FT-02)
   const onSubmitCreateSession = async () => {
-    if (!formNamaPraktikum.trim() || !formKelas.trim()) {
-      Alert.alert('Validasi Gagal', 'Nama praktikum dan kelas wajib diisi.');
+    if (!formNamaPraktikum.trim() || !formKelas.trim() || !formLabId) {
+      Alert.alert('Validasi Gagal', 'Nama praktikum, kelas, dan laboratorium wajib diisi.');
       return;
     }
+
+    const selectedLab = activeLabs.find((lab) => lab.id === formLabId);
 
     const payload = {
       kodeMataKuliah: formKode.trim(),
       namaPraktikum: formNamaPraktikum.trim(),
       topikMateri: formTopik.trim(),
       kelas: formKelas.trim(),
-      ruangLab: formRuangLab.trim(),
+      labId: formLabId,
+      ruangLab: selectedLab?.name || formRuangLab.trim(),
       hari: formHari.trim(),
       jamMulai: formJamMulai.trim(),
       jamSelesai: formJamSelesai.trim(),
@@ -130,6 +146,7 @@ export default function SesiScreen(): React.JSX.Element {
     setFormTopik(sesi.topikMateri || '');
     setFormKelas(sesi.kelas || '');
     setFormRuangLab(sesi.ruangLab || '');
+    setFormLabId(sesi.labId || '');
     setFormHari(sesi.hari || 'Senin');
     setFormJamMulai(sesi.jamMulai || '08:00');
     setFormJamSelesai(sesi.jamSelesai || '10:30');
@@ -139,17 +156,20 @@ export default function SesiScreen(): React.JSX.Element {
   // Handler Simpan Perubahan Sesi (SRS-FT-02)
   const onSubmitUpdateSession = async () => {
     if (!targetSessionToEdit) return;
-    if (!formNamaPraktikum.trim() || !formKelas.trim()) {
-      Alert.alert('Validasi Gagal', 'Nama praktikum dan kelas wajib diisi.');
+    if (!formNamaPraktikum.trim() || !formKelas.trim() || !formLabId) {
+      Alert.alert('Validasi Gagal', 'Nama praktikum, kelas, dan laboratorium wajib diisi.');
       return;
     }
+
+    const selectedLab = activeLabs.find((lab) => lab.id === formLabId);
 
     const updatePayload = {
       kodeMataKuliah: formKode.trim(),
       namaPraktikum: formNamaPraktikum.trim(),
       topikMateri: formTopik.trim(),
       kelas: formKelas.trim(),
-      ruangLab: formRuangLab.trim(),
+      labId: formLabId,
+      ruangLab: selectedLab?.name || formRuangLab.trim(),
       hari: formHari.trim(),
       jamMulai: formJamMulai.trim(),
       jamSelesai: formJamSelesai.trim(),
@@ -281,10 +301,14 @@ export default function SesiScreen(): React.JSX.Element {
 
           <TouchableOpacity
             style={[styles.presensiLinkBtn, { backgroundColor: tema.accentSurface || '#ECFDF5' }]}
-            onPress={() => router.push('/presensi-firestore' as any)}
+            onPress={() =>
+              router.push(authRole === 'asisten' ? '/lokasi-lab' as any : '/presensi-lokasi' as any)
+            }
           >
-            <Ionicons name="checkbox-outline" size={16} color={tema.accent} />
-            <Text style={[styles.presensiLinkText, { color: tema.accent }]}>Presensi</Text>
+            <Ionicons name={authRole === 'asisten' ? 'location-outline' : 'checkbox-outline'} size={16} color={tema.accent} />
+            <Text style={[styles.presensiLinkText, { color: tema.accent }]}>
+              {authRole === 'asisten' ? 'Lokasi Lab' : 'Presensi'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -362,6 +386,12 @@ export default function SesiScreen(): React.JSX.Element {
                 </View>
 
                 <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity
+                    style={[styles.btnSeed, { borderColor: tema.accent }]}
+                    onPress={() => router.push('/lokasi-lab' as any)}
+                  >
+                    <Text style={[styles.btnSeedText, { color: tema.accent }]}>Lokasi Lab</Text>
+                  </TouchableOpacity>
                   {sessions.length === 0 && (
                     <TouchableOpacity
                       style={[styles.btnSeed, { borderColor: tema.accent }]}
@@ -379,6 +409,7 @@ export default function SesiScreen(): React.JSX.Element {
                       setFormTopik('');
                       setFormKelas('TI-3A');
                       setFormRuangLab('Lab RPL 1');
+                      setFormLabId(activeLabs[0]?.id || '');
                       setFormHari('Senin');
                       setFormJamMulai('08:00');
                       setFormJamSelesai('10:30');
@@ -416,7 +447,7 @@ export default function SesiScreen(): React.JSX.Element {
                     Belum Ada Dokumen Sesi di Firestore
                   </Text>
                   <Text style={[styles.emptyDesc, { color: tema.textSecondary }]}>
-                    Klik tombol "Seed Data" untuk mengisi master praktikum, kelas, dan peserta awal secara otomatis.
+                    Klik tombol &quot;Seed Data&quot; untuk mengisi master praktikum, kelas, dan peserta awal secara otomatis.
                   </Text>
                   <TouchableOpacity
                     style={[styles.btnSeedFull, { backgroundColor: tema.accent }]}
@@ -658,7 +689,7 @@ export default function SesiScreen(): React.JSX.Element {
                       {sesi.catatanPembuka ? (
                         <View style={[styles.catatanBox, { backgroundColor: tema.accentSurface || '#ECFDF5' }]}>
                           <Text style={[styles.catatanText, { color: tema.accent }]}>
-                            📢 Asisten: "{sesi.catatanPembuka}"
+                            📢 Asisten: &quot;{sesi.catatanPembuka}&quot;
                           </Text>
                         </View>
                       ) : null}
@@ -667,7 +698,7 @@ export default function SesiScreen(): React.JSX.Element {
                       {isOpen ? (
                         <TouchableOpacity
                           style={[styles.btnGoPresensi, { backgroundColor: tema.accent }]}
-                          onPress={() => router.push(`/presensi-firestore?sessionId=${sesi.id}` as any)}
+                          onPress={() => router.push(`/presensi-lokasi?sessionId=${sesi.id}` as any)}
                         >
                           <Ionicons name="checkbox-outline" size={16} color="#FFFFFF" />
                           <Text style={styles.btnGoPresensiText}>Isi Presensi Sesi Ini Sekarang ➔</Text>
@@ -726,6 +757,31 @@ export default function SesiScreen(): React.JSX.Element {
                 value={formTopik}
                 onChangeText={setFormTopik}
               />
+
+              <Text style={[styles.labSelectorLabel, { color: tema.textSecondary }]}>Laboratorium untuk presensi lokasi</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.labSelectorRow}>
+                {activeLabs.map((lab) => (
+                  <TouchableOpacity
+                    key={lab.id}
+                    style={[
+                      styles.labOption,
+                      { borderColor: formLabId === lab.id ? tema.accent : tema.border },
+                      formLabId === lab.id && { backgroundColor: tema.accentSurface },
+                    ]}
+                    onPress={() => {
+                      setFormLabId(lab.id);
+                      setFormRuangLab(lab.name);
+                    }}
+                  >
+                    <Text style={[styles.labOptionText, { color: formLabId === lab.id ? tema.accent : tema.textSecondary }]}>
+                      {lab.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                {activeLabs.length === 0 && (
+                  <Text style={styles.labEmptyText}>Buat lokasi laboratorium terlebih dahulu.</Text>
+                )}
+              </ScrollView>
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TextInput
@@ -817,6 +873,31 @@ export default function SesiScreen(): React.JSX.Element {
                 value={formTopik}
                 onChangeText={setFormTopik}
               />
+
+              <Text style={[styles.labSelectorLabel, { color: tema.textSecondary }]}>Laboratorium untuk presensi lokasi</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.labSelectorRow}>
+                {activeLabs.map((lab) => (
+                  <TouchableOpacity
+                    key={lab.id}
+                    style={[
+                      styles.labOption,
+                      { borderColor: formLabId === lab.id ? tema.accent : tema.border },
+                      formLabId === lab.id && { backgroundColor: tema.accentSurface },
+                    ]}
+                    onPress={() => {
+                      setFormLabId(lab.id);
+                      setFormRuangLab(lab.name);
+                    }}
+                  >
+                    <Text style={[styles.labOptionText, { color: formLabId === lab.id ? tema.accent : tema.textSecondary }]}>
+                      {lab.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                {activeLabs.length === 0 && (
+                  <Text style={styles.labEmptyText}>Buat lokasi laboratorium terlebih dahulu.</Text>
+                )}
+              </ScrollView>
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TextInput
@@ -1280,6 +1361,30 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     fontSize: 13,
     marginBottom: 10,
+  },
+  labSelectorLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  labSelectorRow: {
+    gap: 7,
+    paddingBottom: 12,
+  },
+  labOption: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  labOptionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  labEmptyText: {
+    color: '#DC2626',
+    fontSize: 11,
+    paddingVertical: 7,
   },
   modalBtnRow: {
     flexDirection: 'row',

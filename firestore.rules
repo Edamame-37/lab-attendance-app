@@ -1,98 +1,224 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Mengecek apakah pengguna sudah login
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Mengecek apakah pengguna mengakses dokumennya sendiri
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Mengecek apakah dokumen profil pengguna tersedia
     function userExists() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // Mengambil profil pengguna yang sedang login
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Mengecek apakah pengguna memiliki role Asisten
     function isAsisten() {
       return userExists() && getUserData().role == 'asisten';
     }
 
-    // ATURAN KOLEKSI USERS
+    function labExistsAndActive(labId) {
+      return labId is string &&
+        exists(/databases/$(database)/documents/labs/$(labId)) &&
+        get(/databases/$(database)/documents/labs/$(labId)).data.isActive == true;
+    }
+
+    function validLabData(data) {
+      return data.keys().hasAll([
+          'name',
+          'code',
+          'location',
+          'radiusMeters',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+          'updatedBy'
+        ]) &&
+        data.keys().hasOnly([
+          'name',
+          'code',
+          'location',
+          'radiusMeters',
+          'address',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+          'updatedBy'
+        ]) &&
+        data.name is string &&
+        data.code is string &&
+        data.location is latlng &&
+        data.radiusMeters is number &&
+        data.radiusMeters > 0 &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedBy == request.auth.uid &&
+        data.get('address', '') is string;
+    }
+
+    function validAttendanceCreate(attendanceId) {
+      let attendance = request.resource.data;
+      let session = get(
+        /databases/$(database)/documents/sessions/$(attendance.sessionId)
+      ).data;
+      let lab = get(
+        /databases/$(database)/documents/labs/$(session.labId)
+      ).data;
+      let calculatedDistance = attendance.location.distance(lab.location);
+
+      return attendance.keys().hasAll([
+          'id',
+          'sessionId',
+          'namaPraktikum',
+          'topikMateri',
+          'studentId',
+          'studentName',
+          'studentNim',
+          'studentClass',
+          'statusKehadiran',
+          'catatan',
+          'timestamp',
+          'waktuPresensi',
+          'tanggal',
+          'labId',
+          'location',
+          'locationAccuracyMeters',
+          'distanceMeters',
+          'locationCapturedAt'
+        ]) &&
+        attendance.keys().hasOnly([
+          'id',
+          'sessionId',
+          'namaPraktikum',
+          'topikMateri',
+          'studentId',
+          'studentName',
+          'studentNim',
+          'studentClass',
+          'statusKehadiran',
+          'catatan',
+          'timestamp',
+          'waktuPresensi',
+          'tanggal',
+          'labId',
+          'location',
+          'locationAccuracyMeters',
+          'distanceMeters',
+          'locationCapturedAt'
+        ]) &&
+        attendance.id == attendanceId &&
+        attendanceId == attendance.sessionId + '_' + request.auth.uid &&
+        attendance.studentId == request.auth.uid &&
+        attendance.sessionId is string &&
+        attendance.labId is string &&
+        attendance.location is latlng &&
+        attendance.locationAccuracyMeters is number &&
+        attendance.locationAccuracyMeters >= 0 &&
+        attendance.distanceMeters is number &&
+        attendance.locationCapturedAt is timestamp &&
+        attendance.timestamp == request.time &&
+        attendance.locationCapturedAt <= request.time &&
+        attendance.locationCapturedAt >= request.time - duration.value(5, 'm') &&
+        attendance.statusKehadiran == 'HADIR' &&
+        attendance.studentName is string &&
+        attendance.studentNim is string &&
+        attendance.studentClass is string &&
+        attendance.namaPraktikum is string &&
+        attendance.topikMateri is string &&
+        attendance.catatan is string &&
+        attendance.waktuPresensi is string &&
+        attendance.tanggal is string &&
+        session.labId == attendance.labId &&
+        (session.status == 'open' || session.statusSesi == 'DIBUKA') &&
+        lab.isActive == true &&
+        lab.location is latlng &&
+        lab.radiusMeters is number &&
+        calculatedDistance <= lab.radiusMeters &&
+        math.abs(attendance.distanceMeters - calculatedDistance) <= 2;
+    }
+
     match /users/{userId} {
-      // Pengguna hanya membaca profil sendiri, Asisten dapat membaca semua profil
       allow read: if isOwner(userId) || isAsisten();
 
-      // Registrasi hanya boleh membuat profil Praktikan milik sendiri
-      allow create: if isOwner(userId)
-        && request.resource.data.uid == userId
-        && request.resource.data.email == request.auth.token.email
-        && request.resource.data.role == 'praktikan';
+      allow create: if isOwner(userId) &&
+        request.resource.data.uid == userId &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.role == 'praktikan';
 
-      // Pengguna hanya boleh mengubah data profil, bukan UID atau role
-      allow update: if isOwner(userId)
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.diff(resource.data).affectedKeys()
+      allow update: if isOwner(userId) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['nama', 'nomorInduk', 'kelas', 'updatedAt']);
 
-      // Penghapusan profil tidak diizinkan melalui aplikasi
       allow delete: if false;
     }
 
-    // ATURAN KOLEKSI SESSIONS
-    match /sessions/{sessionId} {
-      // Pengguna yang login dapat melihat sesi praktikum
+    match /labs/{labId} {
       allow read: if isAuthenticated();
 
-      // Hanya Asisten yang dapat mengelola sesi praktikum
-      allow create, update, delete: if isAsisten();
+      allow create: if isAsisten() &&
+        validLabData(request.resource.data) &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time;
+
+      allow update: if isAsisten() &&
+        validLabData(request.resource.data) &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'code',
+          'location',
+          'radiusMeters',
+          'address',
+          'isActive',
+          'updatedAt',
+          'updatedBy'
+        ]);
+
+      allow delete: if false;
     }
 
-    // ATURAN KOLEKSI ATTENDANCES
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated();
+
+      allow create, update: if isAsisten() &&
+        request.resource.data.labId is string &&
+        labExistsAndActive(request.resource.data.labId);
+
+      allow delete: if isAsisten();
+    }
+
     match /attendances/{attendanceId} {
-      // Praktikan membaca presensi sendiri, Asisten membaca semua presensi
       allow read: if isAuthenticated() && (
-        resource.data.studentId == request.auth.uid ||
-        resource.data.praktikanId == request.auth.uid ||
+        resource.data.get('studentId', '') == request.auth.uid ||
+        resource.data.get('praktikanId', '') == request.auth.uid ||
         isAsisten()
       );
 
-      // Praktikan hanya dapat membuat presensi atas namanya sendiri
-      allow create: if isAuthenticated() && (
-        request.resource.data.studentId == request.auth.uid ||
-        request.resource.data.praktikanId == request.auth.uid
-      );
+      allow create: if isAuthenticated() && validAttendanceCreate(attendanceId);
 
-      // Hanya Asisten yang dapat mengubah atau menghapus presensi
       allow update, delete: if isAsisten();
     }
 
-    // ATURAN KOLEKSI LEAVE REQUESTS
     match /leave_requests/{requestId} {
-      // Praktikan membaca pengajuan sendiri, Asisten membaca semua pengajuan
       allow read: if isAuthenticated() && (
         resource.data.studentId == request.auth.uid ||
         resource.data.praktikanId == request.auth.uid ||
         isAsisten()
       );
 
-      // Praktikan hanya dapat mengajukan izin sendiri dengan status awal pending
-      allow create: if isAuthenticated()
-        && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.keys().hasAll([
+      allow create: if isAuthenticated() &&
+        request.resource.data.studentId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.keys().hasAll([
           'studentId',
           'studentName',
           'studentNim',
@@ -103,14 +229,12 @@ service cloud.firestore {
           'createdAt'
         ]);
 
-      // Hanya Asisten yang dapat memproses pengajuan yang masih pending
-      allow update: if isAsisten()
-        && resource.data.status == 'pending'
-        && request.resource.data.status in ['approved', 'rejected']
-        && request.resource.data.diff(resource.data).affectedKeys()
+      allow update: if isAsisten() &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status in ['approved', 'rejected'] &&
+        request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'reviewedBy', 'reviewedAt']);
 
-      // Hanya Asisten yang dapat menghapus pengajuan
       allow delete: if isAsisten();
     }
   }
