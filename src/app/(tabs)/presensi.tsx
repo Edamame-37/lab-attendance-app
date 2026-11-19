@@ -10,7 +10,7 @@
  * - Menggunakan tema dinamis (Light Mode Warm Stone vs Dark Mode Obsidian).
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -54,23 +54,10 @@ export default function PresensiScreen(): React.JSX.Element {
   const sesiDibukaList = daftarSesi.filter((s) => s.status === 'DIBUKA');
 
   // State form presensi
-  const [selectedSesiId, setSelectedSesiId] = useState<string>(
-    sesiDibukaList.length > 0 ? sesiDibukaList[0].id : ''
-  );
+  const selectedSesiId = sesiDibukaList[0]?.id || '';
   const [statusKehadiran, setStatusKehadiran] =
     useState<StatusKehadiran>('HADIR');
   const [catatan, setCatatan] = useState<string>('');
-
-  // Sinkronisasi sesi terpilih jika status sesi berubah
-  useEffect(() => {
-    const sesiMasihDibuka = sesiDibukaList.some(
-      (sesi) => sesi.id === selectedSesiId
-    );
-
-    if (!sesiMasihDibuka && sesiDibukaList.length > 0) {
-      setSelectedSesiId(sesiDibukaList[0].id);
-    }
-  }, [daftarSesi, selectedSesiId]);
 
   // State dialog modal hasil presensi
   const [modalSuksesVisible, setModalSuksesVisible] = useState<boolean>(false);
@@ -156,7 +143,7 @@ export default function PresensiScreen(): React.JSX.Element {
       {/* BANNER KE PRESENSI CLOUD FIRESTORE RESMI (SRS-FT-03) */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => router.push('/presensi-firestore' as any)}
+        onPress={() => router.push('/presensi-lokasi' as any)}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -174,10 +161,10 @@ export default function PresensiScreen(): React.JSX.Element {
           <Ionicons name="cloud-upload-outline" size={20} color={tema.statusHadir || '#16A34A'} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: tema.statusHadir || '#16A34A' }}>
-              Buka Presensi Cloud Firestore (SRS-FT-03)
+              Buka Presensi Berbasis Lokasi
             </Text>
             <Text style={{ fontSize: 11, color: tema.textSecondary }}>
-              Pencatatan kehadiran live Firestore dengan validasi anti-duplikasi 1x
+              Validasi sesi, lokasi laboratorium, radius, dan anti-duplikasi
             </Text>
           </View>
         </View>
