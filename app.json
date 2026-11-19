@@ -43,9 +43,6 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Aplikasi membutuhkan lokasi untuk menampilkan posisi pengguna dan memvalidasi lokasi laboratorium."
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Izinkan aplikasi mengakses lokasi Anda untuk memvalidasi presensi di laboratorium."
         }
       ]
     ],

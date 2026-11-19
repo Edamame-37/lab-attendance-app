@@ -432,10 +432,11 @@ export const submitAttendance = async ({
       latitude: labData.location.latitude,
       longitude: labData.location.longitude,
     });
-    if (distanceMeters > labData.radiusMeters) {
+    const labRadiusMeters = Number(labData.radiusMeters) || 50;
+    if (distanceMeters > labRadiusMeters) {
       return {
         success: false,
-        message: `Presensi ditolak: Jarak perangkat ${Math.round(distanceMeters)} meter, di luar radius ${labData.radiusMeters} meter.`,
+        message: `Presensi ditolak: Jarak perangkat ${Math.round(distanceMeters)} meter, di luar radius ${labRadiusMeters} meter.`,
       };
     }
 

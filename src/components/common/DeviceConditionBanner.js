@@ -21,6 +21,7 @@ const DeviceConditionBanner = ({
   notificationError,
   requestLocationPermission,
   requestNotificationPermission,
+  openSettings,
 }) => {
   const conditions = [
     {
@@ -78,7 +79,11 @@ const DeviceConditionBanner = ({
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
-          {locationPermission !== 'granted' ? (
+          {locationPermission === 'blocked' && openSettings ? (
+            <TouchableOpacity style={styles.button} onPress={openSettings}>
+              <Text style={styles.buttonText}>Buka Pengaturan Aplikasi</Text>
+            </TouchableOpacity>
+          ) : locationPermission !== 'granted' ? (
             <TouchableOpacity
               style={styles.button}
               onPress={requestLocationPermission}
@@ -92,12 +97,18 @@ const DeviceConditionBanner = ({
       {notificationError ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{notificationError}</Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={requestNotificationPermission}
-          >
-            <Text style={styles.buttonText}>Izinkan Notifikasi</Text>
-          </TouchableOpacity>
+          {notificationPermission === 'blocked' && openSettings ? (
+            <TouchableOpacity style={styles.button} onPress={openSettings}>
+              <Text style={styles.buttonText}>Buka Pengaturan Aplikasi</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={requestNotificationPermission}
+            >
+              <Text style={styles.buttonText}>Izinkan Notifikasi</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : null}
     </View>

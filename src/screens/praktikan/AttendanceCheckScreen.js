@@ -9,6 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
   checkExistingAttendance,
   getSessions,
+  subscribeToSessions,
+  subscribeToUserAttendance,
   submitAttendance,
 } from '../../services/firestoreService';
 import { getLabById } from '../../services/labService';
@@ -44,20 +46,20 @@ export default function AttendanceCheckScreen() {
   );
   const isSessionOpen =
     selectedSession?.status === 'open' || selectedSession?.statusSesi === 'DIBUKA';
+  const effectiveRadius = Number(lab?.radiusMeters) || 0;
   const isInsideRadius =
     Number.isFinite(distanceMeters) &&
-    Number.isFinite(lab?.radiusMeters) &&
-    distanceMeters <= lab.radiusMeters;
+    effectiveRadius > 0 &&
+    distanceMeters <= effectiveRadius;
 
   useEffect(() => {
-    let isMounted = true;
-    const loadSessions = async () => {
-      setIsLoadingData(true);
-      setError('');
-      try {
-        const availableSessions = await getSessions();
-        if (!isMounted) return;
+    setIsLoadingData(true);
+    setError('');
+
+    const unsubscribe = subscribeToSessions(
+      (availableSessions) => {
         setSessions(availableSessions);
+        setIsLoadingData(false);
         const requestedExists = availableSessions.some(
           (session) => session.id === requestedSessionId
         );
@@ -69,45 +71,61 @@ export default function AttendanceCheckScreen() {
           if (availableSessions.some((session) => session.id === currentId)) return currentId;
           return firstOpenSession?.id || availableSessions[0]?.id || '';
         });
-      } catch (loadError) {
-        if (isMounted) setError(loadError.message || 'Daftar sesi tidak dapat dimuat.');
-      } finally {
-        if (isMounted) setIsLoadingData(false);
+      },
+      (loadError) => {
+        setError(loadError.message || 'Daftar sesi tidak dapat dimuat.');
+        setIsLoadingData(false);
       }
-    };
-    loadSessions();
+    );
+
     return () => {
-      isMounted = false;
+      unsubscribe();
     };
   }, [requestedSessionId]);
 
   useEffect(() => {
     let isMounted = true;
-    const loadSessionDependencies = async () => {
-      setDeviceLocation(null);
-      setDistanceMeters(null);
-      setLocationError('');
-      setLab(null);
-      setIsAlreadyAttended(false);
-      if (!selectedSession || !user?.uid) return;
+    setDeviceLocation(null);
+    setDistanceMeters(null);
+    setLocationError('');
+    setLab(null);
+    setIsAlreadyAttended(false);
 
+    if (!selectedSession || !user?.uid) return;
+
+    let unsubAttendance = () => {};
+
+    const loadDependencies = async () => {
       try {
-        const [labData, alreadyAttended] = await Promise.all([
-          selectedSession.labId ? getLabById(selectedSession.labId) : Promise.resolve(null),
-          checkExistingAttendance(selectedSession.id, user.uid),
-        ]);
-        if (!isMounted) return;
-        setLab(labData);
-        setIsAlreadyAttended(alreadyAttended);
+        if (selectedSession.labId) {
+          const labData = await getLabById(selectedSession.labId);
+          if (isMounted) setLab(labData);
+        }
       } catch (loadError) {
-        if (isMounted) setError(loadError.message || 'Data presensi tidak dapat dimuat.');
+        if (isMounted) setError(loadError.message || 'Data laboratorium tidak dapat dimuat.');
       }
     };
-    loadSessionDependencies();
+
+    loadDependencies();
+
+    unsubAttendance = subscribeToUserAttendance(
+      selectedSession.id,
+      user.uid,
+      (userAttendance) => {
+        if (isMounted) {
+          setIsAlreadyAttended(Boolean(userAttendance));
+        }
+      },
+      (subError) => {
+        console.error('Error subscribeToUserAttendance:', subError);
+      }
+    );
+
     return () => {
       isMounted = false;
+      unsubAttendance();
     };
-  }, [selectedSession, user?.uid]);
+  }, [selectedSession?.id, selectedSession?.labId, user?.uid]);
 
   const refreshDeviceLocation = useCallback(async () => {
     if (!lab?.location) {
@@ -137,14 +155,21 @@ export default function AttendanceCheckScreen() {
   }, [lab]);
 
   const handleSubmitAttendance = async () => {
-    if (!selectedSession || !lab || !user?.uid) return;
+    if (!selectedSession || !lab || !user?.uid || isSubmitting || isAlreadyAttended) return;
+    if (!isSessionOpen) {
+      setError('Presensi ditolak: Sesi praktikum saat ini belum dibuka atau sudah ditutup oleh asisten.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
     try {
       const freshLocationResult = await refreshDeviceLocation();
       if (!freshLocationResult) return;
-      if (freshLocationResult.currentDistance > lab.radiusMeters) {
-        setLocationError('Presensi ditolak karena perangkat berada di luar radius laboratorium.');
+
+      const currentRadius = Number(lab.radiusMeters) || 0;
+      if (freshLocationResult.currentDistance > currentRadius) {
+        setLocationError(`Presensi ditolak karena perangkat berada di luar radius laboratorium (${Math.round(freshLocationResult.currentDistance)} m / radius ${currentRadius} m).`);
         return;
       }
 
@@ -160,6 +185,10 @@ export default function AttendanceCheckScreen() {
 
       if (!result.success) {
         setError(result.message);
+        const msg = String(result.message || '').toLowerCase();
+        if (msg.includes('sudah melakukan presensi') || msg.includes('hanya diperbolehkan satu kali')) {
+          setIsAlreadyAttended(true);
+        }
         return;
       }
 
@@ -258,7 +287,7 @@ export default function AttendanceCheckScreen() {
       <RadiusStatusCard
         location={deviceLocation}
         distanceMeters={distanceMeters}
-        radiusMeters={lab?.radiusMeters || 0}
+        radiusMeters={Number(lab?.radiusMeters) || 0}
         isLoading={isLoadingLocation}
         error={locationError}
         onRefresh={refreshDeviceLocation}
@@ -269,12 +298,22 @@ export default function AttendanceCheckScreen() {
       ) : null}
 
       <TouchableOpacity
-        style={[styles.submitButton, { backgroundColor: tema.accent }, (disabledReason || isSubmitting) && styles.disabledButton]}
+        style={[
+          styles.submitButton,
+          { backgroundColor: tema.accent },
+          (Boolean(disabledReason) || isSubmitting || isAlreadyAttended) && styles.disabledButton,
+        ]}
         onPress={handleSubmitAttendance}
-        disabled={Boolean(disabledReason) || isSubmitting}
+        disabled={Boolean(disabledReason) || isSubmitting || isAlreadyAttended}
       >
-        {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />}
-        <Text style={styles.submitText}>{isSubmitting ? 'Memvalidasi lokasi...' : 'Konfirmasi Presensi'}</Text>
+        {isSubmitting ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Ionicons name={isAlreadyAttended ? 'checkmark-done-circle' : 'checkmark-circle-outline'} size={20} color="#FFFFFF" />
+        )}
+        <Text style={styles.submitText}>
+          {isSubmitting ? 'Memvalidasi lokasi...' : isAlreadyAttended ? 'Presensi Telah Tercatat' : 'Konfirmasi Presensi'}
+        </Text>
       </TouchableOpacity>
     </ScreenContainer>
   );

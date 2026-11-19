@@ -18,13 +18,18 @@ const LabActivitySheet = ({
   if (!lab) return null;
 
   const getSessionName = (session) =>
-    session?.name || session?.courseName || session?.subject || 'Sesi Laboratorium';
+    session?.namaPraktikum ||
+    session?.topikMateri ||
+    session?.name ||
+    session?.courseName ||
+    session?.subject ||
+    'Sesi Laboratorium';
 
   const getSessionTime = (session) => {
     if (!session) return '-';
 
-    const start = session.startTime || session.start || '';
-    const end = session.endTime || session.end || '';
+    const start = session.jamMulai || session.startTime || session.start || '';
+    const end = session.jamSelesai || session.endTime || session.end || '';
 
     if (start && end) return `${start} - ${end}`;
     return start || end || 'Waktu belum ditentukan';
@@ -33,7 +38,11 @@ const LabActivitySheet = ({
   const getSessionStatus = (session) => {
     if (!session) return 'Tidak tersedia';
 
-    const status = session.status || 'Terjadwal';
+    const status = session.statusSesi || session.status || 'Terjadwal';
+
+    if (status === 'open' || status === 'DIBUKA') return 'Sedang Berlangsung';
+    if (status === 'closed' || status === 'DITUTUP') return 'Sesi Ditutup';
+    if (status === 'SELESAI') return 'Selesai';
 
     return status.toString().replace(/_/g, ' ');
   };
@@ -81,7 +90,14 @@ const LabActivitySheet = ({
           </Text>
 
           <Text style={styles.labLocation}>
-            {lab.location || lab.building || 'Lokasi laboratorium'}
+            {typeof lab.location === 'string'
+              ? lab.location
+              : lab.address ||
+                lab.ruangLab ||
+                lab.building ||
+                (Number.isFinite(Number(lab.latitude))
+                  ? `Koordinat: ${Number(lab.latitude).toFixed(4)}, ${Number(lab.longitude).toFixed(4)}`
+                  : 'Lokasi laboratorium')}
           </Text>
         </View>
 

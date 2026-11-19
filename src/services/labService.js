@@ -21,6 +21,7 @@ const mapLabDocument = (documentSnapshot) => {
     ...data,
     latitude: data.location?.latitude ?? null,
     longitude: data.location?.longitude ?? null,
+    radiusMeters: Number.isFinite(Number(data.radiusMeters)) ? Number(data.radiusMeters) : 50,
   };
 };
 
@@ -29,13 +30,14 @@ export const validateLabInput = (labInput) => {
   const code = labInput?.code?.trim().toUpperCase();
   const address = labInput?.address?.trim() || '';
   const coordinates = validateCoordinates(labInput?.latitude, labInput?.longitude);
-  const radiusMeters = Number(labInput?.radiusMeters);
+  const cleanRadiusStr = String(labInput?.radiusMeters ?? '').trim().replace(',', '.');
+  const radiusMeters = Number(cleanRadiusStr);
 
   if (!name || !code) {
     throw new Error('Nama dan kode laboratorium wajib diisi.');
   }
-  if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) {
-    throw new Error('Radius laboratorium harus lebih besar dari 0 meter.');
+  if (cleanRadiusStr === '' || !Number.isFinite(radiusMeters) || radiusMeters <= 0) {
+    throw new Error('Radius laboratorium harus berupa angka positif lebih dari 0 meter.');
   }
 
   return {

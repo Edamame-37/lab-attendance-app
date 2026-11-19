@@ -10,10 +10,16 @@ const getStatusPresentation = ({ isLoading, error, location, distanceMeters, rad
   if (error) {
     return { icon: 'warning-outline', label: 'Lokasi belum tersedia', color: '#DC2626' };
   }
-  if (!location || !Number.isFinite(distanceMeters)) {
+  const hasValidCoordinates =
+    location &&
+    Number.isFinite(Number(location.latitude)) &&
+    Number.isFinite(Number(location.longitude));
+
+  if (!hasValidCoordinates || !Number.isFinite(distanceMeters)) {
     return { icon: 'navigate-outline', label: 'Lokasi belum diperiksa', color: '#71717A' };
   }
-  if (distanceMeters <= radiusMeters) {
+  const effectiveRadius = Number(radiusMeters) || 0;
+  if (distanceMeters <= effectiveRadius) {
     return { icon: 'checkmark-circle-outline', label: 'Di dalam radius lab', color: '#059669' };
   }
   return { icon: 'close-circle-outline', label: 'Di luar radius lab', color: '#DC2626' };
@@ -54,16 +60,16 @@ export default function RadiusStatusCard({
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {location ? (
+      {location && Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)) ? (
         <View style={[styles.details, { backgroundColor: tema.surfaceRaised }]}>
           <Text style={[styles.detailText, { color: tema.textSecondary }]}>
-            Koordinat: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+            Koordinat: {Number(location.latitude).toFixed(6)}, {Number(location.longitude).toFixed(6)}
           </Text>
           <Text style={[styles.detailText, { color: tema.textSecondary }]}>
             Akurasi: ±{Math.round(location.accuracyMeters || 0)} m
           </Text>
           <Text style={[styles.detailText, { color: tema.textSecondary }]}>
-            Jarak: {Number.isFinite(distanceMeters) ? `${Math.round(distanceMeters)} m` : '-'} / radius {radiusMeters || 0} m
+            Jarak: {Number.isFinite(distanceMeters) ? `${Math.round(distanceMeters)} m` : '-'} / radius {Number(radiusMeters) || 0} m
           </Text>
         </View>
       ) : null}

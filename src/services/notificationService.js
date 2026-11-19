@@ -39,7 +39,8 @@ export const registerForPushNotifications = async () => {
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ||
-      Constants.easConfig?.projectId;
+      Constants.easConfig?.projectId ||
+      'a937d8b0-1a28-45c4-8b57-25484df719d1';
 
     if (!projectId) {
       return {
@@ -106,5 +107,114 @@ export const clearNotificationBadge = async () => {
     await Notifications.setBadgeCountAsync(0);
   } catch (error) {
     console.log('Gagal menghapus badge notifikasi:', error);
+  }
+};
+
+/**
+ * Mengirim notifikasi pembukaan sesi yang hanya ditargetkan kepada peserta kelas terkait (FT-13 & Sprint 3).
+ */
+export const notifySessionOpened = async ({ session, recipientStudentIds = [], currentUserId = null }) => {
+  try {
+    if (!session) return { success: false, message: 'Data sesi tidak ditemukan.' };
+
+    const enrolledIds = Array.isArray(session.daftarPeserta)
+      ? session.daftarPeserta.map((p) => p.nim || p.studentId || p.id).filter(Boolean)
+      : [];
+
+    const effectiveTargetIds = (recipientStudentIds.length > 0 ? recipientStudentIds : enrolledIds)
+      .filter((id) => id !== currentUserId);
+
+    const title = 'Sesi Praktikum Dibuka 🔔';
+    const body = `${session.namaPraktikum || 'Praktikum'} (${session.kelas || ''}) di ${session.ruangLab || 'Lab'} telah dibuka. Segera lakukan presensi!`;
+
+    await sendLocalNotification({
+      title,
+      body,
+      data: {
+        type: 'session_opened',
+        sessionId: session.id,
+        targetStudentIds: effectiveTargetIds,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Notifikasi pembukaan sesi berhasil dikirim.',
+      targetCount: effectiveTargetIds.length,
+    };
+  } catch (error) {
+    console.error('Error notifySessionOpened:', error);
+    return { success: false, message: error.message || 'Gagal mengirim notifikasi sesi.' };
+  }
+};
+
+/**
+ * Mengirim notifikasi perubahan jadwal praktikum ke peserta kelas yang relevan (FT-13).
+ */
+export const notifyScheduleChanged = async ({ session, recipientStudentIds = [], currentUserId = null }) => {
+  try {
+    if (!session) return { success: false, message: 'Data sesi tidak ditemukan.' };
+
+    const enrolledIds = Array.isArray(session.daftarPeserta)
+      ? session.daftarPeserta.map((p) => p.nim || p.studentId || p.id).filter(Boolean)
+      : [];
+
+    const effectiveTargetIds = (recipientStudentIds.length > 0 ? recipientStudentIds : enrolledIds)
+      .filter((id) => id !== currentUserId);
+
+    const title = 'Perubahan Jadwal Praktikum 📅';
+    const body = `Jadwal ${session.namaPraktikum || 'Praktikum'} (${session.kelas || ''}) diperbarui: ${session.hari || ''}, ${session.jamMulai || ''} - ${session.jamSelesai || ''}.`;
+
+    await sendLocalNotification({
+      title,
+      body,
+      data: {
+        type: 'schedule_changed',
+        sessionId: session.id,
+        targetStudentIds: effectiveTargetIds,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Notifikasi perubahan jadwal berhasil dikirim.',
+      targetCount: effectiveTargetIds.length,
+    };
+  } catch (error) {
+    console.error('Error notifyScheduleChanged:', error);
+    return { success: false, message: error.message || 'Gagal mengirim notifikasi jadwal.' };
+  }
+};
+
+/**
+ * Mengirim notifikasi keputusan izin hanya ke mahasiswa yang mengajukan (FT-13).
+ */
+export const notifyLeaveDecision = async ({ studentId, decision, namaPraktikum = 'Praktikum' }) => {
+  try {
+    if (!studentId) {
+      return { success: false, message: 'Target studentId penerima izin wajib diisi.' };
+    }
+
+    const isApproved = decision === 'approved' || decision === 'DISETUJUI';
+    const title = isApproved ? 'Pengajuan Izin Disetujui ✅' : 'Pengajuan Izin Ditolak ❌';
+    const body = `Pengajuan izin Anda untuk ${namaPraktikum} telah ${isApproved ? 'DISETUJUI' : 'DITOLAK'} oleh asisten.`;
+
+    await sendLocalNotification({
+      title,
+      body,
+      data: {
+        type: 'leave_decision',
+        studentId,
+        decision,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Notifikasi keputusan izin berhasil dikirim ke mahasiswa ${studentId}.`,
+    };
+  } catch (error) {
+    console.error('Error notifyLeaveDecision:', error);
+    return { success: false, message: error.message || 'Gagal mengirim notifikasi izin.' };
   }
 };

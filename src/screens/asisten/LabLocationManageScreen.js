@@ -76,8 +76,8 @@ export default function LabLocationManageScreen() {
       const location = await getCurrentDeviceLocation();
       setForm((current) => ({
         ...current,
-        latitude: location.latitude.toFixed(7),
-        longitude: location.longitude.toFixed(7),
+        latitude: Number.isFinite(location?.latitude) ? location.latitude.toFixed(7) : '',
+        longitude: Number.isFinite(location?.longitude) ? location.longitude.toFixed(7) : '',
       }));
     } catch (locationError) {
       setError(formatLocationError(locationError));
@@ -90,10 +90,46 @@ export default function LabLocationManageScreen() {
     setIsSaving(true);
     setError('');
     try {
+      const name = form.name?.trim();
+      const code = form.code?.trim().toUpperCase();
+      if (!name || !code) {
+        throw new Error('Nama dan kode laboratorium wajib diisi.');
+      }
+
+      const cleanLat = String(form.latitude ?? '').trim().replace(',', '.');
+      const cleanLng = String(form.longitude ?? '').trim().replace(',', '.');
+      if (!cleanLat || !cleanLng) {
+        throw new Error('Koordinat latitude dan longitude wajib diisi.');
+      }
+
+      const latNum = Number(cleanLat);
+      const lngNum = Number(cleanLng);
+      if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
+        throw new Error('Latitude harus berupa angka valid antara -90 dan 90.');
+      }
+      if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
+        throw new Error('Longitude harus berupa angka valid antara -180 dan 180.');
+      }
+
+      const cleanRadius = String(form.radiusMeters ?? '').trim().replace(',', '.');
+      const radiusNum = Number(cleanRadius);
+      if (!cleanRadius || !Number.isFinite(radiusNum) || radiusNum <= 0) {
+        throw new Error('Radius harus berupa angka positif lebih dari 0 meter.');
+      }
+
+      const sanitizedForm = {
+        ...form,
+        name,
+        code,
+        latitude: latNum,
+        longitude: lngNum,
+        radiusMeters: radiusNum,
+      };
+
       if (editingLabId) {
-        await updateLab(editingLabId, form, user?.uid);
+        await updateLab(editingLabId, sanitizedForm, user?.uid);
       } else {
-        await createLab(form, user?.uid);
+        await createLab(sanitizedForm, user?.uid);
       }
       resetForm();
       Alert.alert('Berhasil', editingLabId ? 'Lokasi laboratorium diperbarui.' : 'Laboratorium baru ditambahkan.');
@@ -227,7 +263,7 @@ export default function LabLocationManageScreen() {
               </Text>
             </View>
             <Text style={[styles.coordinates, { color: tema.textSecondary }]}>
-              {lab.latitude?.toFixed(6)}, {lab.longitude?.toFixed(6)}
+              {Number.isFinite(Number(lab.latitude)) ? Number(lab.latitude).toFixed(6) : '-'}, {Number.isFinite(Number(lab.longitude)) ? Number(lab.longitude).toFixed(6) : '-'}
             </Text>
             {lab.address ? <Text style={[styles.address, { color: tema.textSecondary }]}>{lab.address}</Text> : null}
             <View style={styles.labActions}>

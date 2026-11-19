@@ -162,6 +162,97 @@ export default function JadwalSesiScreen(): React.JSX.Element {
         </View>
       </View>
 
+      {/* BANNER SPRINT 3 - MODUL MARCEL & AZLAN (SRS-FT-09 s.d. 14) */}
+      <View
+        style={{
+          backgroundColor: tema.surface,
+          borderColor: tema.border,
+          borderWidth: 1,
+          borderRadius: 14,
+          padding: 12,
+          marginBottom: 14,
+          gap: 8,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="navigate-circle-outline" size={18} color="#2563EB" />
+            <Text style={{ fontSize: 13, fontWeight: '800', color: tema.textPrimary }}>
+              Modul Peta, Lokasi & Notifikasi (Sprint 3)
+            </Text>
+          </View>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: '#2563EB', backgroundColor: '#EFF6FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+            FT-09 • 10 • 11 • 12 • 13 • 14
+          </Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push('/peta-lab' as any)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              backgroundColor: '#2563EB',
+              paddingVertical: 9,
+              borderRadius: 8,
+            }}
+          >
+            <Ionicons name="map-outline" size={15} color="#FFFFFF" />
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>
+              Peta Lab
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push('/presensi-lokasi' as any)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              backgroundColor: tema.surfaceRaised,
+              borderColor: tema.border,
+              borderWidth: 1,
+              paddingVertical: 9,
+              borderRadius: 8,
+            }}
+          >
+            <Ionicons name="locate-outline" size={15} color={tema.textPrimary} />
+            <Text style={{ fontSize: 11, fontWeight: '700', color: tema.textPrimary }}>
+              Presensi Radius
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push('/lokasi-lab' as any)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              backgroundColor: tema.surfaceRaised,
+              borderColor: tema.border,
+              borderWidth: 1,
+              paddingVertical: 9,
+              borderRadius: 8,
+            }}
+          >
+            <Ionicons name="settings-outline" size={15} color={tema.textPrimary} />
+            <Text style={{ fontSize: 11, fontWeight: '700', color: tema.textPrimary }}>
+              Kelola Lab
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* SECTION 1: SESI SEDANG BERLANGSUNG */}
       {sesiUtama && (
         <View style={styles.sectionWrap}>

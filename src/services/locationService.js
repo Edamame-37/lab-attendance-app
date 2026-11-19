@@ -11,8 +11,30 @@ export class LocationServiceError extends Error {
 }
 
 export const validateCoordinates = (latitude, longitude) => {
-  const parsedLatitude = Number(latitude);
-  const parsedLongitude = Number(longitude);
+  if (
+    latitude === null ||
+    latitude === undefined ||
+    longitude === null ||
+    longitude === undefined
+  ) {
+    throw new LocationServiceError(
+      'invalid-coordinates',
+      'Koordinat latitude dan longitude wajib diisi.'
+    );
+  }
+
+  const cleanLatStr = String(latitude).trim().replace(',', '.');
+  const cleanLngStr = String(longitude).trim().replace(',', '.');
+
+  if (cleanLatStr === '' || cleanLngStr === '') {
+    throw new LocationServiceError(
+      'invalid-coordinates',
+      'Koordinat latitude dan longitude tidak boleh kosong.'
+    );
+  }
+
+  const parsedLatitude = Number(cleanLatStr);
+  const parsedLongitude = Number(cleanLngStr);
 
   if (
     !Number.isFinite(parsedLatitude) ||
@@ -24,7 +46,7 @@ export const validateCoordinates = (latitude, longitude) => {
   ) {
     throw new LocationServiceError(
       'invalid-coordinates',
-      'Koordinat lokasi tidak valid.'
+      'Koordinat lokasi tidak valid. Latitude harus antara -90 dan 90, Longitude antara -180 dan 180.'
     );
   }
 
