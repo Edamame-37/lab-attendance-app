@@ -28,7 +28,13 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Izinkan aplikasi mengakses lokasi Anda untuk memvalidasi presensi di laboratorium."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
