@@ -115,6 +115,20 @@ function RootNavigator(): React.JSX.Element {
         />
 
         <Stack.Screen
+          name="presensi-lokasi"
+          options={{
+            title: 'Presensi Berbasis Lokasi',
+          }}
+        />
+
+        <Stack.Screen
+          name="lokasi-lab"
+          options={{
+            title: 'Lokasi Laboratorium',
+          }}
+        />
+
+        <Stack.Screen
           name="pengajuan-izin"
           options={{
             title: 'Pengajuan Izin',

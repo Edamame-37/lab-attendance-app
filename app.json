@@ -2,7 +2,7 @@
   "expo": {
     "name": "ppk-mobile-praktikum",
     "slug": "ppk-mobile-praktikum",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "static"
     },
     "scheme": "ppk-mobile",
     "plugins": [
@@ -42,6 +43,9 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Aplikasi membutuhkan lokasi untuk menampilkan posisi pengguna dan memvalidasi lokasi laboratorium."
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Izinkan aplikasi mengakses lokasi Anda untuk memvalidasi presensi di laboratorium."
         }
       ]
     ],

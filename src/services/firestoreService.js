@@ -20,14 +20,19 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
+  GeoPoint,
+  Timestamp,
 } from 'firebase/firestore';
-import { db } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { getLabById, getLabs } from './labService.js';
+import { calculateDistanceMeters, validateCoordinates } from './locationService.js';
 
 // Nama koleksi utama di Firestore
 export const COLLECTIONS = {
   SESSIONS: 'sessions',
   ATTENDANCES: 'attendances',
   CLASSES: 'classes',
+  LABS: 'labs',
 };
 
 /**
@@ -53,7 +58,7 @@ export const getSessions = async () => {
     try {
       const fallbackSnap = await getDocs(collection(db, COLLECTIONS.SESSIONS));
       return fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    } catch (e) {
+    } catch (_error) {
       throw error;
     }
   }
@@ -82,8 +87,13 @@ export const getSessionById = async (sessionId) => {
  */
 export const createSession = async (sessionData) => {
   try {
-    if (!sessionData.namaPraktikum || !sessionData.kelas) {
-      throw new Error('Nama praktikum dan kelas wajib diisi');
+    if (!sessionData.namaPraktikum || !sessionData.kelas || !sessionData.labId) {
+      throw new Error('Nama praktikum, kelas, dan laboratorium wajib diisi');
+    }
+
+    const selectedLab = await getLabById(sessionData.labId);
+    if (!selectedLab || selectedLab.isActive === false) {
+      throw new Error('Laboratorium yang dipilih tidak tersedia atau sedang nonaktif');
     }
 
     const payload = {
@@ -91,7 +101,8 @@ export const createSession = async (sessionData) => {
       namaPraktikum: sessionData.namaPraktikum.trim(),
       topikMateri: sessionData.topikMateri ? sessionData.topikMateri.trim() : 'Praktikum Umum',
       kelas: sessionData.kelas.trim(),
-      ruangLab: sessionData.ruangLab ? sessionData.ruangLab.trim() : 'Lab RPL 1',
+      labId: selectedLab.id,
+      ruangLab: selectedLab.name,
       hari: sessionData.hari || 'Senin',
       jamMulai: sessionData.jamMulai || '08:00',
       jamSelesai: sessionData.jamSelesai || '10:30',
@@ -129,9 +140,19 @@ export const updateSession = async (sessionId, updateData) => {
     if (!sessionId) {
       throw new Error('Session ID wajib diisi');
     }
+    const sanitizedUpdate = { ...updateData };
+    if (updateData.labId) {
+      const selectedLab = await getLabById(updateData.labId);
+      if (!selectedLab || selectedLab.isActive === false) {
+        throw new Error('Laboratorium yang dipilih tidak tersedia atau sedang nonaktif');
+      }
+      sanitizedUpdate.labId = selectedLab.id;
+      sanitizedUpdate.ruangLab = selectedLab.name;
+    }
+
     const docRef = doc(db, COLLECTIONS.SESSIONS, sessionId);
     await updateDoc(docRef, {
-      ...updateData,
+      ...sanitizedUpdate,
       updatedAt: serverTimestamp(),
     });
     return { success: true, message: 'Data sesi berhasil diperbarui' };
@@ -207,13 +228,20 @@ export const closeSession = async (sessionId) => {
  */
 export const seedInitialPracticalData = async () => {
   try {
+    const activeLabs = await getLabs({ activeOnly: true });
+    const defaultLab = activeLabs[0];
+    if (!defaultLab) {
+      throw new Error('Buat minimal satu laboratorium aktif sebelum memuat data sesi awal');
+    }
+
     const initialSessions = [
       {
         kodeMataKuliah: 'PPK-301',
         namaPraktikum: 'Praktikum Pemrograman Perangkat Keras',
         topikMateri: 'Modul 3: Integrasi Cloud Firestore & Realtime Sync',
         kelas: 'TI-3A',
-        ruangLab: 'Laboratorium Sistem Tertanam',
+        labId: defaultLab.id,
+        ruangLab: defaultLab.name,
         hari: 'Senin',
         jamMulai: '08:00',
         jamSelesai: '10:30',
@@ -239,7 +267,8 @@ export const seedInitialPracticalData = async () => {
         namaPraktikum: 'Praktikum Jaringan Komputer',
         topikMateri: 'Modul 2: Konfigurasi Routing Dinamis OSPF',
         kelas: 'TI-3B',
-        ruangLab: 'Laboratorium Jaringan Komputer',
+        labId: defaultLab.id,
+        ruangLab: defaultLab.name,
         hari: 'Rabu',
         jamMulai: '13:00',
         jamSelesai: '15:30',
@@ -262,7 +291,8 @@ export const seedInitialPracticalData = async () => {
         namaPraktikum: 'Praktikum Basis Data Lanjut',
         topikMateri: 'Modul 1: Query Optimasi & Indeks NoSQL',
         kelas: 'TI-3A',
-        ruangLab: 'Laboratorium Basis Data',
+        labId: defaultLab.id,
+        ruangLab: defaultLab.name,
         hari: 'Kamis',
         jamMulai: '10:00',
         jamSelesai: '12:30',
@@ -339,10 +369,17 @@ export const submitAttendance = async ({
   studentClass = '',
   statusKehadiran = 'HADIR',
   catatan = '',
+  deviceLocation,
 }) => {
   try {
     if (!sessionId || !studentId) {
       throw new Error('Sesi ID dan Mahasiswa ID wajib disertakan');
+    }
+    if (!auth.currentUser || auth.currentUser.uid !== studentId) {
+      throw new Error('Identitas pengguna tidak sesuai dengan akun yang sedang login');
+    }
+    if (!deviceLocation) {
+      throw new Error('Lokasi perangkat wajib disertakan untuk presensi');
     }
 
     // 1. Validasi keberadaan & status sesi
@@ -357,6 +394,48 @@ export const submitAttendance = async ({
       return {
         success: false,
         message: 'Presensi ditolak: Sesi praktikum saat ini belum dibuka atau sudah ditutup oleh asisten.',
+      };
+    }
+
+    if (!sessionData.labId) {
+      return {
+        success: false,
+        message: 'Presensi ditolak: Sesi belum dikaitkan dengan lokasi laboratorium.',
+      };
+    }
+
+    const labData = await getLabById(sessionData.labId);
+    if (!labData || labData.isActive === false || !labData.location) {
+      return {
+        success: false,
+        message: 'Presensi ditolak: Konfigurasi lokasi laboratorium tidak tersedia.',
+      };
+    }
+
+    const validatedLocation = validateCoordinates(
+      deviceLocation.latitude,
+      deviceLocation.longitude
+    );
+    const capturedAt = Number(deviceLocation.capturedAt);
+    if (
+      !Number.isFinite(capturedAt) ||
+      Date.now() - capturedAt > 60_000 ||
+      capturedAt > Date.now() + 5_000
+    ) {
+      return {
+        success: false,
+        message: 'Presensi ditolak: Lokasi perangkat sudah kedaluwarsa.',
+      };
+    }
+
+    const distanceMeters = calculateDistanceMeters(validatedLocation, {
+      latitude: labData.location.latitude,
+      longitude: labData.location.longitude,
+    });
+    if (distanceMeters > labData.radiusMeters) {
+      return {
+        success: false,
+        message: `Presensi ditolak: Jarak perangkat ${Math.round(distanceMeters)} meter, di luar radius ${labData.radiusMeters} meter.`,
       };
     }
 
@@ -393,6 +472,11 @@ export const submitAttendance = async ({
       timestamp: serverTimestamp(),
       waktuPresensi: waktuPresensiStr,
       tanggal: now.toISOString().split('T')[0],
+      labId: sessionData.labId,
+      location: new GeoPoint(validatedLocation.latitude, validatedLocation.longitude),
+      locationAccuracyMeters: Math.max(0, Number(deviceLocation.accuracyMeters) || 0),
+      distanceMeters,
+      locationCapturedAt: Timestamp.fromMillis(capturedAt),
     };
 
     await setDoc(attendanceDocRef, payload);
