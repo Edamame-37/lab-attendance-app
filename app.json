@@ -12,6 +12,10 @@
     },
     "android": {
       "package": "com.edamame.labattendance",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,7 +31,19 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyBt-L7PnvZ2fmDzGNE-rVaBwQW0Othc8K8"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Aplikasi membutuhkan lokasi untuk menampilkan posisi pengguna dan memvalidasi lokasi laboratorium."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
