@@ -636,3 +636,216 @@ Urutan yang direkomendasikan:
 
 Kesimpulan audit ulang: proyek telah mengalami peningkatan nyata pada integritas presensi, kompatibilitas Expo SDK 58, alur lokasi, dan tooling development tunnel. Sistem tetap belum production-safe karena push notification belum end-to-end, lokasi client masih dapat dipalsukan, enrollment/canonical identity belum ditegakkan, PII peserta terlalu terbuka, rollback auth belum aman, dan automated security tests belum tersedia.
 
+## 14. Audit Post-Merge Main - 21 November 2026
+
+### 14.1 Baseline dan Ruang Lingkup
+
+Audit ini dilakukan ulang setelah PR #20 digabungkan ke `main`.
+
+- Branch: `main`
+- Commit: `09a52c0` (`Merge pull request #20 from Edamame-37/fix/location-error`)
+- Parent utama: `3ea21f8`
+- Parent PR: `e0396d4`
+- Status awal working tree: bersih dan sinkron dengan `origin/main`
+- Expo SDK terpasang: `58.0.26`
+- React Native: `0.88.1`
+- Expo Router: `58.0.32`
+- Firebase: `13.2.0`
+- Package manager: npm (`package-lock.json`)
+- Native directories: tidak ada; proyek tetap menggunakan Continuous Native Generation.
+
+Ruang lingkup mencakup seluruh source, route, autentikasi, Firestore Rules, sesi, presensi lokasi, izin, laboratorium, peta, notifikasi, konfigurasi Expo/EAS, dependency, lint, typecheck, web export, dan development tunnel. Audit ini bersifat static review dan command-level verification; tidak mencakup EAS cloud build, deployment Rules, pengujian perangkat fisik, penetrasi GPS spoofing, atau pengiriman remote push ke perangkat penerima.
+
+### 14.2 Delta Merge yang Diverifikasi
+
+Merge `09a52c0` menyatukan perbaikan lokasi/tunnel dari PR #20 dengan perubahan layout pada `3ea21f8`. Perbandingan parent PR `e0396d4` terhadap hasil akhir `main` menunjukkan enam file tambahan dari sisi `main`:
+
+1. `app.json`
+   - `web.output` berubah dari `static` menjadi `single`.
+2. `package.json`
+   - Script development selalu menggunakan `-c` untuk membersihkan Metro cache.
+3. `src/app/(tabs)/index.tsx`
+   - Banner shortcut diringkas dan teks metadata dibuat dapat membungkus.
+4. `src/app/(tabs)/presensi.tsx`
+   - Nilai metadata presensi dibuat responsif terhadap teks panjang.
+5. `src/components/ScreenContainer.tsx`
+   - Menambahkan perhitungan top inset melalui `useSafeAreaInsets()` dan tinggi status bar Android.
+6. `src/screens/praktikan/AttendanceCheckScreen.js`
+   - Baris informasi dibuat dapat membungkus ketika nama laboratorium panjang.
+
+Perubahan PR #20 yang tetap ada pada hasil merge:
+
+- Pengambilan lokasi perangkat tidak lagi dihentikan hanya karena sesi atau konfigurasi laboratorium belum tersedia.
+- Jarak hanya dihitung ketika koordinat laboratorium tersedia.
+- State laboratorium, jarak, dan status presensi dikaitkan dengan session/user key untuk mengurangi stale state.
+- `ws@8.23.0` tersedia pada root dependency sehingga `@expo/ws-tunnel` tidak lagi memakai API `ws@7` yang tidak kompatibel.
+- Audit ulang tanggal 21 November tetap tercatat pada bagian 13.
+
+### 14.3 Hasil Validasi Teknis Post-Merge
+
+| Pemeriksaan | Hasil | Bukti/Ringkasan |
+| :--- | :--- | :--- |
+| Git baseline | Lulus | `main` dan `origin/main` berada pada `09a52c0`; working tree awal bersih. |
+| `npx expo install --check` | Lulus | Seluruh package dinyatakan up to date untuk SDK 58. |
+| `npx expo-doctor` | Lulus | 20/20 checks passed. |
+| `npx tsc --noEmit` | Lulus | Tidak ada error TypeScript. |
+| `npx expo config --type public` | Lulus | Konfigurasi dapat di-resolve sebagai SDK 58 untuk Android, iOS, dan web. |
+| `npx expo lint --no-cache` | Gagal | 12 error dan 21 warning pada 17 file. |
+| `npm audit` | Gagal | 8 advisory: 5 high, 3 moderate, 0 critical. |
+| `npm audit --omit=dev` | Gagal | Ringkasan tetap 8 advisory; advisory berada pada dependency graph production. |
+| Production web export | Lulus | `web.output: single` menghasilkan 1 `index.html`, 60 file, total 7.411.966 byte. |
+| Development tunnel | Lulus | QR, custom scheme, dan URL `on.expo.app` berhasil dibuat; server dihentikan normal. |
+| Dependency `ws` | Lulus | `@expo/ws-tunnel@2.0.1` menggunakan `ws@8.23.0`; Metro/React Native tetap memakai nested `ws@7.5.14`. |
+| Automated tests | Tidak tersedia | Tidak ditemukan file unit, integration, E2E, atau Firestore Rules test. |
+| EAS cloud/native build | Belum diuji | Tidak dijalankan dalam audit lokal ini. |
+| Perangkat fisik | Belum diuji | GPS, peta native, safe area perangkat, dan remote push belum divalidasi pada device. |
+
+Web export menghasilkan dua chunk terbesar sekitar 1,61 MB (`__common`) dan 1,10 MB (`entry`) sebelum memperhitungkan kompresi HTTP. Mode `single` sesuai untuk SPA, tetapi deployment web harus menyediakan fallback seluruh deep link ke `index.html`; mode ini juga tidak menghasilkan HTML yang dapat diindeks per route.
+
+### 14.4 Status Perbaikan yang Sudah Terverifikasi
+
+#### PM-OK01 - Refresh lokasi tanpa konfigurasi lab
+
+**Status: terverifikasi membaik.**
+
+`refreshDeviceLocation()` pada `AttendanceCheckScreen.js` selalu menjalankan `getCurrentDeviceLocation()`. Ketiadaan `lab.location` hanya membuat `currentDistance` bernilai `null`, bukan membatalkan pembacaan GPS. `RadiusStatusCard` kemudian membedakan status "Lokasi perangkat tersedia" dari "Lokasi laboratorium belum dikonfigurasi".
+
+Implikasi operasional: tampilan "Belum ada sesi praktikum" atau "Lokasi laboratorium belum dikonfigurasi" tetap valid apabila koleksi Firestore memang belum berisi sesi/lab aktif. Perbaikan kode tidak membuat konfigurasi lab secara otomatis; asisten tetap harus membuat lab, mengaitkannya ke sesi, dan membuka sesi sebelum tombol konfirmasi presensi aktif.
+
+#### PM-OK02 - Expo development tunnel
+
+**Status: terselesaikan untuk environment audit.**
+
+Tunnel berhasil dimulai menggunakan `npx expo start --dev-client --clear --tunnel --port 8091`. Error `TypeError: s.WebSocket is not a constructor` tidak muncul kembali. Root `ws@8.23.0` memenuhi kebutuhan `@expo/ws-tunnel`, sedangkan dependency yang masih membutuhkan `ws@7` mempunyai salinan nested sendiri.
+
+#### PM-OK03 - Build web SPA
+
+**Status: terverifikasi.**
+
+Perubahan `web.output` ke `single` menghasilkan satu entry HTML dan seluruh route tetap dibundel sebagai chunk. Ini konsisten dengan model Single Page Application Expo Router. Validasi deep-link pada hosting produksi tetap diperlukan karena hasil audit hanya membuktikan export lokal berhasil.
+
+#### PM-OK04 - Text wrapping dan layout metadata
+
+**Status: terverifikasi secara static.**
+
+Nama laboratorium dan nilai metadata panjang sekarang memakai `flexShrink`, `flex`, `textAlign`, atau `flexWrap` yang sesuai. Tidak ditemukan error TypeScript/build akibat perubahan tersebut. Ketepatan visual pada variasi ukuran layar belum dibuktikan melalui device/screenshot test.
+
+### 14.5 Temuan Critical dan High Post-Merge
+
+Tidak ditemukan temuan **Critical** baru. Seluruh temuan High pada audit bagian 13 masih terbuka:
+
+| ID | Status Post-Merge | Bukti Terkini |
+| :--- | :--- | :--- |
+| A21-H01 - Push notification belum end-to-end | Terbuka | `notificationService.js` hanya menjadwalkan local notification. Tidak ada penyimpanan token, backend sender, pemanggilan event helper, atau delivery ke perangkat target. `expo-notifications` juga belum tercantum sebagai config plugin. |
+| A21-H02 - Trust dan authorization presensi lokasi | Terbuka | Rules memverifikasi radius dari koordinat yang dikirim client, tetapi belum memverifikasi role praktikan, enrollment sesi, canonical profile, batas akurasi, atau keaslian sumber lokasi. |
+| A21-H03 - PII peserta pada dokumen sesi | Terbuka | Semua pengguna terautentikasi masih dapat membaca seluruh dokumen `sessions`, termasuk `daftarPeserta`. |
+| A21-H04 - Akun Auth yatim saat registrasi gagal | Terbuka | Kegagalan pembuatan profil hanya memanggil `signOut(auth)`, bukan menghapus akun yang baru dibuat atau menyelesaikan provisioning dari trusted backend. |
+| A21-H05 - Dependency advisories | Terbuka | `npm audit --omit=dev` masih melaporkan 5 high dan 3 moderate melalui Expo, Firebase/`@grpc/grpc-js`, `node-forge`, dan `minimatch`. |
+
+Catatan dependency: saran otomatis audit yang menurunkan Expo ke SDK 52 atau Firebase ke 9.14 bukan perbaikan aman untuk proyek SDK 58 dan tidak boleh diterapkan menggunakan `npm audit fix --force` tanpa evaluasi kompatibilitas.
+
+### 14.6 Temuan Medium Post-Merge
+
+#### PM-M01 - Header dan safe-area ditangani pada dua lapisan
+
+Route seperti `presensi-lokasi` dan `lokasi-lab` masih menggunakan header bawaan root `Stack`, sementara screen di dalamnya juga merender top bar dan tombol kembali sendiri. `ScreenContainer` kemudian menambahkan top inset lagi. Kombinasi ini menjelaskan tampilan dua judul/tombol kembali dan dapat menghasilkan jarak atas berlebih pada halaman standalone.
+
+Rekomendasi: pilih satu pemilik header. Untuk screen yang memiliki top bar internal, set `headerShown: false` pada konfigurasi route dan biarkan `ScreenContainer` menangani safe area; atau hapus top bar internal dan gunakan header Stack secara konsisten. Validasi pada Android dengan cutout, Android gesture navigation, dan iPhone notch.
+
+#### PM-M02 - Perubahan layout menambah warning lint baru
+
+`src/components/ScreenContainer.tsx` mengimpor `SafeAreaView` dari `react-native-safe-area-context`, tetapi komponen tersebut tidak digunakan. Warning lint meningkat dari 20 menjadi 21, sedangkan error tetap 12.
+
+Debt lint keseluruhan masih meliputi komponen yang dibuat saat render, synchronous `setState` dalam effect, unescaped entities, dependency effect yang tidak lengkap, duplicate import, dan unused variables. Lint belum dapat dijadikan quality gate CI sampai 12 error diselesaikan.
+
+#### PM-M03 - Schema dan invariant sesi belum ditegakkan di Rules
+
+`firestore.rules` hanya mensyaratkan pengguna asisten serta `labId` yang menunjuk lab aktif ketika membuat atau memperbarui sesi. Rules belum membatasi allowed fields, tipe data, transisi status, `asistenId`, timestamp, daftar peserta, atau perubahan lab saat sesi aktif. Client `updateSession()` juga menyebarkan seluruh `updateData` ke Firestore.
+
+Rekomendasi: tambahkan `hasOnly`/`hasAll`, validasi tipe, timestamp server, kepemilikan asisten atau kebijakan admin, dan state transition yang eksplisit. Sertakan Rules Emulator tests untuk create, update, open, close, dan delete.
+
+#### PM-M04 - Alur lokasi sudah benar, tetapi kesiapan presensi bergantung pada data operasional
+
+Screen sekarang dapat membaca koordinat tanpa sesi/lab, tetapi konfirmasi presensi memang harus tetap ditolak ketika belum ada sesi terbuka, `labId`, lab aktif, atau koordinat lab. Repository tidak memiliki provisioning/migration yang menjamin data master tersebut tersedia pada environment baru; seed yang ada juga tidak idempotent dan memuat identitas contoh.
+
+Rekomendasi: buat runbook provisioning environment dan seed development yang eksplisit, idempotent, serta tidak memakai PII nyata. Jangan memperlonggar validasi presensi hanya untuk menghilangkan empty state.
+
+#### PM-M05 - SPA deployment membutuhkan rewrite deep-link
+
+`web.output: single` menghasilkan hanya satu `index.html`. Route seperti `/presensi-lokasi`, `/lokasi-lab`, dan `/review-izin` memerlukan hosting yang mengarahkan request route langsung kembali ke `index.html`. Tanpa rewrite, reload atau pembukaan deep link dapat menghasilkan 404 walaupun navigasi client-side bekerja.
+
+Rekomendasi: dokumentasikan konfigurasi rewrite provider atau gunakan target output lain bila kebutuhan deployment mengharuskan HTML per route.
+
+#### PM-M06 - Firestore index masih tidak dideklarasikan
+
+`permissionService.js` menggunakan gabungan `where('studentId', '==', ...)` dan `orderBy('createdAt', 'desc')`, tetapi repository tidak memiliki `firestore.indexes.json`, dan `firebase.json` hanya menunjuk `firestore.rules`. Environment baru dapat gagal menjalankan query sampai index dibuat manual.
+
+#### PM-M07 - Validasi end-to-end belum memiliki test automation
+
+Tidak ada unit test untuk jarak/radius, integration test service, Firestore Rules Emulator test, route authorization test, atau E2E test. Keberhasilan build dan static review belum membuktikan bahwa presensi, izin, peta, dan notifikasi bekerja pada kondisi race, offline, permission denied, spoofed input, atau perangkat fisik.
+
+#### PM-M08 - Temuan medium audit sebelumnya tetap terbuka
+
+Temuan berikut tidak berubah: dual dummy/Firestore data source, role simulator pada jalur produksi, Rules izin yang longgar, deactivation lab yang dapat mengunci sesi, belum adanya kebijakan privasi/retensi koordinat, sebagian besar domain kritis masih JavaScript, route evaluasi tetap production-reachable, dan modul berukuran sangat besar.
+
+### 14.7 Temuan Low dan Maintainability
+
+- Accessibility masih rendah: 108 `TouchableOpacity` dan 5 `Pressable`, tetapi hanya 8 accessibility props yang ditemukan.
+- `package.json` tetap version `1.0.0`, sedangkan `app.json` version `1.1.0`.
+- Google Maps API key tetap berada pada tracked `app.json`; key perlu dibatasi berdasarkan package/SHA dan API yang diperlukan.
+- Firebase web client config fallback tetap berada pada source. Nilai ini bukan server secret, tetapi akses data sepenuhnya bergantung pada Rules yang benar.
+- `README.md` belum menjelaskan Sprint 3, alur provisioning lab/sesi, development build, tunnel, dan SPA rewrite.
+- `PRAKMOBILE3.md` masih menyarankan `git add .`, bertentangan dengan workflow repository.
+- `test-farrel` dan `fitur-sprint2` masih menjadi route yang dapat diakses pada production bundle.
+- Source terdiri dari 64 file: 26 JavaScript dan 38 TypeScript. Typecheck yang lulus tidak memberi perlindungan penuh pada modul JavaScript kritis.
+- File terbesar tetap `src/app/sesi.tsx` (1.410 baris), diikuti `src/app/(tabs)/presensi.tsx` (711), `SessionManageScreen.js` (687), dan `firestoreService.js` (624).
+- Script start selalu memakai clear cache. Ini berguna untuk troubleshooting, tetapi memperlambat startup normal; pertimbangkan memisahkan script normal dan script `:clear`.
+
+### 14.8 Matriks Kepatuhan SRS Post-Merge
+
+| SRS | Status | Perubahan Setelah Merge |
+| :--- | :--- | :--- |
+| FT-01 Autentikasi | Parsial | Tidak berubah; rollback akun tanpa profil belum aman. |
+| FT-02 CRUD sesi/kelas | Parsial | Tidak berubah; kelas/enrollment dan Rules schema sesi belum lengkap. |
+| FT-03 Presensi satu kali | Parsial | Deterministic document ID dan Rules tetap aktif. |
+| FT-04 Realtime sync | Parsial | Listener tersedia; dual data source tetap berisiko tidak konsisten. |
+| FT-05 Pengajuan izin | Parsial | Tidak berubah; Rules, uniqueness, dan index belum lengkap. |
+| FT-06 AI EDOM | Eksperimental | Tidak berubah; hasil analisis berasal dari client. |
+| FT-07 Review izin | Parsial | Transaction tersedia; remote notification keputusan belum terjadi. |
+| FT-08 Validasi/keamanan | Parsial | Tidak ada regresi Critical, tetapi temuan High masih terbuka. |
+| FT-09 Halaman presensi khusus | Terimplementasi dengan catatan UX | Flow screen bekerja; duplicate header/safe-area perlu dirapikan. |
+| FT-10 Validasi lokasi/radius | Parsial, membaik | Refresh GPS tanpa lab terverifikasi; spoofing, enrollment, dan accuracy threshold belum ditangani. |
+| FT-11 CRUD lokasi lab | Terimplementasi dengan catatan | CRUD tersedia; deactivation dan provisioning masih perlu guard. |
+| FT-12 Peta interaktif | Terimplementasi secara static review | Device test belum dilakukan. |
+| FT-13 Push notification | Belum terpenuhi | Masih local notification tanpa remote delivery ke target. |
+| FT-14 Permission/kondisi perangkat | Parsial | Hook tersedia; channel/token flow dan integrasi lintas screen belum lengkap. |
+
+### 14.9 Prioritas Perbaikan Setelah Merge
+
+1. Implementasikan push notification end-to-end: Android channel, permission/token lifecycle, token store, trusted backend sender, event trigger, receipt handling, dan deep link.
+2. Perkuat presensi dengan role praktikan, enrollment UID, canonical profile, policy akurasi, dan threat model GPS spoofing.
+3. Pisahkan PII peserta dari dokumen sesi yang dapat dibaca seluruh pengguna login.
+4. Selesaikan rollback registrasi menggunakan `deleteUser()` atau provisioning backend yang atomik/terkontrol.
+5. Triase dependency advisory berdasarkan rilis Expo/Firebase kompatibel; hindari downgrade otomatis dan `--force`.
+6. Tambahkan schema/state-transition Rules untuk sesi dan Rules Emulator tests untuk seluruh koleksi kritis.
+7. Hilangkan duplicate Stack header/top bar dan validasi safe area pada perangkat fisik.
+8. Selesaikan 12 error serta 21 warning lint dan jadikan lint/typecheck sebagai CI gate.
+9. Tambahkan `firestore.indexes.json`, runbook provisioning lab/sesi, dan test automation.
+10. Dokumentasikan SPA rewrite, development build, tunnel, serta alur Sprint 3 di README.
+11. Pisahkan data dummy/role simulator dari production path dan keluarkan route test dari production bundle.
+12. Tingkatkan accessibility, modularisasi file besar, dan tetapkan performance budget web/native.
+
+### 14.10 Referensi Teknis Post-Merge
+
+- Expo SDK 58 reference: <https://docs.expo.dev/versions/v58.0.0/>
+- Expo documentation index/corrections: <https://docs.expo.dev/llms.txt>
+- Expo SDK 58 Location: <https://docs.expo.dev/versions/v58.0.0/sdk/location/>
+- Expo SDK 58 Notifications: <https://docs.expo.dev/versions/v58.0.0/sdk/notifications/>
+- Expo web output targets: <https://docs.expo.dev/guides/publishing-websites/>
+- Expo Router static rendering: <https://docs.expo.dev/router/web/static-rendering/>
+- Expo Router SDK 57 ke 58 migration: <https://docs.expo.dev/router/migrate/sdk-57-to-58/>
+- Firestore Rules query behavior: <https://firebase.google.com/docs/firestore/security/rules-query>
+- Firestore Rules conditions: <https://firebase.google.com/docs/firestore/security/rules-conditions>
+
+Kesimpulan post-merge: hasil merge stabil pada level dependency compatibility, Expo Doctor, typecheck, web export, dan development tunnel. Perbaikan refresh lokasi bekerja sesuai tujuan: perangkat dapat memperoleh lokasi meskipun sesi/lab belum tersedia, sementara konfirmasi presensi tetap aman karena membutuhkan sesi terbuka dan konfigurasi lab. Sistem belum layak dinyatakan production-ready karena lima temuan High masih terbuka, lint gagal, test automation tidak tersedia, push notification belum end-to-end, serta deployment/device behavior belum divalidasi. Merge juga menyisakan masalah UX duplicate header/safe-area yang terlihat pada halaman standalone dan satu warning lint baru.
+
