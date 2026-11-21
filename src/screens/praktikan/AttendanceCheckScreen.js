@@ -7,8 +7,6 @@ import RadiusStatusCard from '../../components/attendance/RadiusStatusCard';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import {
-  checkExistingAttendance,
-  getSessions,
   subscribeToSessions,
   subscribeToUserAttendance,
   submitAttendance,
@@ -30,10 +28,10 @@ export default function AttendanceCheckScreen() {
   const { user, userProfile } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(requestedSessionId || '');
-  const [lab, setLab] = useState(null);
+  const [labState, setLabState] = useState({ sessionKey: '', data: null });
   const [deviceLocation, setDeviceLocation] = useState(null);
-  const [distanceMeters, setDistanceMeters] = useState(null);
-  const [isAlreadyAttended, setIsAlreadyAttended] = useState(false);
+  const [distanceState, setDistanceState] = useState({ sessionKey: '', meters: null });
+  const [attendanceState, setAttendanceState] = useState({ attendanceKey: '', attended: false });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,6 +42,19 @@ export default function AttendanceCheckScreen() {
     () => sessions.find((session) => session.id === selectedSessionId) || null,
     [sessions, selectedSessionId]
   );
+  const selectedLabId = selectedSession?.labId || '';
+  const selectedSessionKey = selectedSession
+    ? `${selectedSession.id}:${selectedLabId}`
+    : '';
+  const attendanceKey = selectedSessionId && user?.uid
+    ? `${selectedSessionId}:${user.uid}`
+    : '';
+  const lab = labState.sessionKey === selectedSessionKey ? labState.data : null;
+  const distanceMeters = distanceState.sessionKey === selectedSessionKey
+    ? distanceState.meters
+    : null;
+  const isAlreadyAttended =
+    attendanceState.attendanceKey === attendanceKey && attendanceState.attended;
   const isSessionOpen =
     selectedSession?.status === 'open' || selectedSession?.statusSesi === 'DIBUKA';
   const effectiveRadius = Number(lab?.radiusMeters) || 0;
@@ -51,15 +62,14 @@ export default function AttendanceCheckScreen() {
     Number.isFinite(distanceMeters) &&
     effectiveRadius > 0 &&
     distanceMeters <= effectiveRadius;
+  const hasConfiguredLabLocation = Boolean(lab?.location);
 
   useEffect(() => {
-    setIsLoadingData(true);
-    setError('');
-
     const unsubscribe = subscribeToSessions(
       (availableSessions) => {
         setSessions(availableSessions);
         setIsLoadingData(false);
+        setError('');
         const requestedExists = availableSessions.some(
           (session) => session.id === requestedSessionId
         );
@@ -85,22 +95,16 @@ export default function AttendanceCheckScreen() {
 
   useEffect(() => {
     let isMounted = true;
-    setDeviceLocation(null);
-    setDistanceMeters(null);
-    setLocationError('');
-    setLab(null);
-    setIsAlreadyAttended(false);
 
-    if (!selectedSession || !user?.uid) return;
+    if (!selectedSessionId || !user?.uid) return;
 
     let unsubAttendance = () => {};
 
     const loadDependencies = async () => {
       try {
-        if (selectedSession.labId) {
-          const labData = await getLabById(selectedSession.labId);
-          if (isMounted) setLab(labData);
-        }
+        await Promise.resolve();
+        const labData = selectedLabId ? await getLabById(selectedLabId) : null;
+        if (isMounted) setLabState({ sessionKey: selectedSessionKey, data: labData });
       } catch (loadError) {
         if (isMounted) setError(loadError.message || 'Data laboratorium tidak dapat dimuat.');
       }
@@ -109,11 +113,11 @@ export default function AttendanceCheckScreen() {
     loadDependencies();
 
     unsubAttendance = subscribeToUserAttendance(
-      selectedSession.id,
+      selectedSessionId,
       user.uid,
       (userAttendance) => {
         if (isMounted) {
-          setIsAlreadyAttended(Boolean(userAttendance));
+          setAttendanceState({ attendanceKey, attended: Boolean(userAttendance) });
         }
       },
       (subError) => {
@@ -125,34 +129,31 @@ export default function AttendanceCheckScreen() {
       isMounted = false;
       unsubAttendance();
     };
-  }, [selectedSession?.id, selectedSession?.labId, user?.uid]);
+  }, [attendanceKey, selectedLabId, selectedSessionId, selectedSessionKey, user?.uid]);
 
   const refreshDeviceLocation = useCallback(async () => {
-    if (!lab?.location) {
-      setLocationError('Sesi belum memiliki konfigurasi lokasi laboratorium.');
-      return null;
-    }
-
     setIsLoadingLocation(true);
     setLocationError('');
     try {
       const currentLocation = await getCurrentDeviceLocation();
-      const currentDistance = calculateDistanceMeters(currentLocation, {
-        latitude: lab.location.latitude,
-        longitude: lab.location.longitude,
-      });
+      const currentDistance = lab?.location
+        ? calculateDistanceMeters(currentLocation, {
+            latitude: lab.location.latitude,
+            longitude: lab.location.longitude,
+          })
+        : null;
       setDeviceLocation(currentLocation);
-      setDistanceMeters(currentDistance);
+      setDistanceState({ sessionKey: selectedSessionKey, meters: currentDistance });
       return { currentLocation, currentDistance };
     } catch (locationFailure) {
       setDeviceLocation(null);
-      setDistanceMeters(null);
+      setDistanceState({ sessionKey: selectedSessionKey, meters: null });
       setLocationError(formatLocationError(locationFailure));
       return null;
     } finally {
       setIsLoadingLocation(false);
     }
-  }, [lab]);
+  }, [lab, selectedSessionKey]);
 
   const handleSubmitAttendance = async () => {
     if (!selectedSession || !lab || !user?.uid || isSubmitting || isAlreadyAttended) return;
@@ -187,12 +188,12 @@ export default function AttendanceCheckScreen() {
         setError(result.message);
         const msg = String(result.message || '').toLowerCase();
         if (msg.includes('sudah melakukan presensi') || msg.includes('hanya diperbolehkan satu kali')) {
-          setIsAlreadyAttended(true);
+          setAttendanceState({ attendanceKey, attended: true });
         }
         return;
       }
 
-      setIsAlreadyAttended(true);
+      setAttendanceState({ attendanceKey, attended: true });
       Alert.alert('Presensi Berhasil', result.message);
     } catch (submitError) {
       setError(submitError.message || 'Presensi tidak dapat disimpan.');
@@ -229,7 +230,13 @@ export default function AttendanceCheckScreen() {
       {isLoadingData ? (
         <ActivityIndicator color={tema.accent} style={styles.loading} />
       ) : sessions.length === 0 ? (
-        <Text style={[styles.emptyText, { color: tema.textSecondary }]}>Belum ada sesi praktikum.</Text>
+        <View style={[styles.emptyState, { backgroundColor: tema.surface, borderColor: tema.border }]}>
+          <Ionicons name="calendar-outline" size={24} color={tema.textMuted} />
+          <Text style={[styles.emptyTitle, { color: tema.textPrimary }]}>Belum ada sesi praktikum</Text>
+          <Text style={[styles.emptyText, { color: tema.textSecondary }]}>
+            Asisten perlu membuat sesi di Firestore dan mengaitkannya dengan laboratorium sebelum presensi dapat dilakukan.
+          </Text>
+        </View>
       ) : (
         <>
           <Text style={[styles.sectionLabel, { color: tema.textPrimary }]}>Pilih sesi</Text>
@@ -290,6 +297,7 @@ export default function AttendanceCheckScreen() {
         radiusMeters={Number(lab?.radiusMeters) || 0}
         isLoading={isLoadingLocation}
         error={locationError}
+        hasConfiguredLabLocation={hasConfiguredLabLocation}
         onRefresh={refreshDeviceLocation}
       />
 
@@ -326,7 +334,9 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: 11, marginTop: 2 },
   sectionLabel: { fontSize: 14, fontWeight: '800' },
   loading: { marginVertical: 30 },
-  emptyText: { textAlign: 'center', paddingVertical: 24 },
+  emptyState: { alignItems: 'center', borderWidth: 1, borderRadius: 14, padding: 18, gap: 7 },
+  emptyTitle: { fontSize: 14, fontWeight: '800' },
+  emptyText: { textAlign: 'center', fontSize: 12, lineHeight: 18 },
   errorBanner: { color: '#991B1B', backgroundColor: '#FEE2E2', borderRadius: 10, padding: 12, fontSize: 12 },
   sessionList: { gap: 8 },
   sessionButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, padding: 13 },
