@@ -43,6 +43,9 @@ export const AuthProvider = ({ children }) => {
   // State profil pengguna dari Firestore (termasuk role, nama, nomorInduk, kelas)
   const [userProfile, setUserProfile] = useState(null);
 
+  // State peran aktif yang bisa dialihkan (untuk simulasi/demo maupun switch peran)
+  const [activeRole, setActiveRole] = useState(null);
+
   // Status loading inisialisasi sesi login awal
   const [isLoading, setIsLoading] = useState(true);
 
@@ -71,6 +74,7 @@ export const AuthProvider = ({ children }) => {
         const profile = await getUserProfile(currentUser.uid);
         if (profile && ['praktikan', 'asisten'].includes(profile.role)) {
           setUserProfile(profile);
+          setActiveRole((prev) => prev || profile.role);
         } else {
           setUserProfile(null);
           setAuthError(
@@ -115,6 +119,7 @@ export const AuthProvider = ({ children }) => {
       const { user: loggedInUser, profile } = await loginUser(email, password);
       setUser(loggedInUser);
       setUserProfile(profile);
+      setActiveRole(profile?.role || null);
       return { success: true, user: loggedInUser, profile };
     } catch (error) {
       const errorMessage = formatAuthError(error);
@@ -133,6 +138,7 @@ export const AuthProvider = ({ children }) => {
       const { user: registeredUser, profile } = await registerUser(userData);
       setUser(registeredUser);
       setUserProfile(profile);
+      setActiveRole(profile?.role || null);
       return { success: true, user: registeredUser, profile };
     } catch (error) {
       const errorMessage = formatAuthError(error);
@@ -150,6 +156,7 @@ export const AuthProvider = ({ children }) => {
       await logoutUser();
       setUser(null);
       setUserProfile(null);
+      setActiveRole(null);
     } catch (error) {
       const errorMessage = formatAuthError(error);
       setAuthError(errorMessage);
@@ -178,14 +185,16 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = !!user && !!userProfile && ['praktikan', 'asisten'].includes(userProfile.role);
 
   /**
-   * Jika profil belum terssdia maka null
+   * Role aktif (dapat dialihkan untuk demonstrasi atau alih tugas)
    */
-  const role = userProfile?.role || null;
+  const role = activeRole || userProfile?.role || null;
 
   const contextValue = {
     user,
     userProfile,
     role,
+    activeRole,
+    setActiveRole,
     isLoading,
     isAuthenticated,
     authError,

@@ -43,9 +43,18 @@ export default function ProfilScreen(): React.JSX.Element {
     tema,
   } = useApp();
 
-  const { logout, user } = useAuth();
+  const { logout, user, userProfile } = useAuth();
 
   const [modalPeranVisible, setModalPeranVisible] = useState<boolean>(false);
+
+  // Label opsi peran dinamis akun
+  const praktikanSubLabel = userProfile
+    ? `${userProfile.nama} · ${userProfile.nomorInduk || 'Mahasiswa'}${userProfile.kelas ? ` (${userProfile.kelas})` : ''}`
+    : 'Ahmad Fauzi · 2141720001 (TI-3A)';
+
+  const asistenSubLabel = userProfile
+    ? `${userProfile.nama} · Asisten Laboratorium`
+    : 'Rian Hidayat, S.Kom. · Koordinator RPL';
 
   // Inisial avatar 2 huruf
   const inisial = penggunaAktif.nama
@@ -373,7 +382,7 @@ export default function ProfilScreen(): React.JSX.Element {
                     { color: tema.textSecondary },
                   ]}
                 >
-                  Ahmad Fauzi · 2141720001 (TI-3A)
+                  {praktikanSubLabel}
                 </Text>
               </View>
               {peranAktif === 'praktikan' && (
@@ -424,7 +433,7 @@ export default function ProfilScreen(): React.JSX.Element {
                     { color: tema.textSecondary },
                   ]}
                 >
-                  Rian Hidayat, S.Kom. · Koordinator RPL
+                  {asistenSubLabel}
                 </Text>
               </View>
               {peranAktif === 'asisten' && (

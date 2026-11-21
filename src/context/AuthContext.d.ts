@@ -24,6 +24,8 @@ export interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   role: PeranPengguna;
+  activeRole?: PeranPengguna | null;
+  setActiveRole?: (role: PeranPengguna | null) => void;
   isLoading: boolean;
   isAuthenticated: boolean;
   authError: string | null;

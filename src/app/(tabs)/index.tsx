@@ -93,138 +93,208 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
-      {/* BANNER SHORTCUT SPRINT 2 */}
+      {/* PINTASAN MODUL (TERINTEGRASI SESUAI PERAN AKTIF) */}
       <View
         style={{
           backgroundColor: tema.surface,
           borderColor: tema.border,
           borderWidth: 1,
           borderRadius: 14,
-          padding: 10,
-          marginBottom: 10,
-        }}
-      >
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/sesi' as any)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              backgroundColor: tema.accent,
-              paddingVertical: 9,
-              borderRadius: 8,
-            }}
-          >
-            <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-              Kelola Sesi
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/presensi-firestore' as any)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              backgroundColor: tema.surfaceRaised,
-              borderColor: tema.border,
-              borderWidth: 1,
-              paddingVertical: 9,
-              borderRadius: 8,
-            }}
-          >
-            <Ionicons name="checkbox-outline" size={15} color={tema.textPrimary} />
-            <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-              Presensi Firestore
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* BANNER SHORTCUT SPRINT 3 */}
-      <View
-        style={{
-          backgroundColor: tema.surface,
-          borderColor: tema.border,
-          borderWidth: 1,
-          borderRadius: 14,
-          padding: 10,
+          padding: 12,
           marginBottom: 14,
+          gap: 8,
         }}
       >
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/peta-lab' as any)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 5,
-              backgroundColor: '#2563EB',
-              paddingVertical: 9,
-              borderRadius: 8,
-            }}
-          >
-            <Ionicons name="map-outline" size={15} color="#FFFFFF" />
-            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>
-              Peta Lab
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/presensi-lokasi' as any)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 5,
-              backgroundColor: tema.surfaceRaised,
-              borderColor: tema.border,
-              borderWidth: 1,
-              paddingVertical: 9,
-              borderRadius: 8,
-            }}
-          >
-            <Ionicons name="locate-outline" size={15} color={tema.textPrimary} />
-            <Text style={{ fontSize: 11, fontWeight: '700', color: tema.textPrimary }}>
-              Presensi Radius
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/lokasi-lab' as any)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 5,
-              backgroundColor: tema.surfaceRaised,
-              borderColor: tema.border,
-              borderWidth: 1,
-              paddingVertical: 9,
-              borderRadius: 8,
-            }}
-          >
-            <Ionicons name="settings-outline" size={15} color={tema.textPrimary} />
-            <Text style={{ fontSize: 11, fontWeight: '700', color: tema.textPrimary }}>
-              Kelola Lab
-            </Text>
-          </TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
+            Pintasan Menu {peranAktif === 'asisten' ? 'Asisten' : 'Praktikan'}
+          </Text>
+          <Text style={{ fontSize: 10, color: tema.textMuted }}>
+            {peranAktif === 'asisten' ? 'Modul Kelola & Validasi' : 'Modul Kehadiran & Perizinan'}
+          </Text>
         </View>
+
+        {peranAktif === 'asisten' ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/sesi' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: tema.accent,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                Kelola Sesi
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/lokasi-lab' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: tema.surfaceRaised,
+                borderColor: tema.border,
+                borderWidth: 1,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="settings-outline" size={16} color={tema.textPrimary} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
+                Kelola Lab
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/peta-lab' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: '#2563EB',
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="map-outline" size={16} color="#FFFFFF" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                Peta Lab
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/review-izin' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: tema.surfaceRaised,
+                borderColor: tema.border,
+                borderWidth: 1,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="document-text-outline" size={16} color={tema.textPrimary} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
+                Review Izin
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/presensi-lokasi' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: tema.accent,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="locate-outline" size={16} color="#FFFFFF" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                Presensi Praktikum
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/peta-lab' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: '#2563EB',
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="map-outline" size={16} color="#FFFFFF" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                Peta Lab
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/pengajuan-izin' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: tema.surfaceRaised,
+                borderColor: tema.border,
+                borderWidth: 1,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="mail-outline" size={16} color={tema.textPrimary} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
+                Pengajuan Izin
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/status-izin' as any)}
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: tema.surfaceRaised,
+                borderColor: tema.border,
+                borderWidth: 1,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="time-outline" size={16} color={tema.textPrimary} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
+                Status Izin
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* SECTION 1: SESI SEDANG BERLANGSUNG */}

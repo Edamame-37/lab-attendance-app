@@ -140,10 +140,15 @@ export default function PresensiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
-      {/* BANNER KE PRESENSI CLOUD FIRESTORE RESMI (SRS-FT-03) */}
+      {/* BANNER KE PRESENSI CLOUD FIRESTORE RESMI (SRS-FT-03 & FT-09) */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => router.push('/presensi-lokasi' as any)}
+        onPress={() =>
+          router.push({
+            pathname: '/presensi-lokasi',
+            params: selectedSesiId ? { sessionId: selectedSesiId } : {},
+          } as any)
+        }
         style={{
           flexDirection: 'row',
           alignItems: 'center',

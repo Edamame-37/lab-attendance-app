@@ -5,6 +5,14 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { collection, query, onSnapshot } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import {
+  subscribeToSessions,
+  openSession,
+  closeSession,
+  COLLECTIONS,
+} from '@/services/firestoreService';
 import { useAuth } from './AuthContext';
 import {
   AppContextType,
@@ -59,16 +67,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (auth?.userProfile) {
+      const currentRole = (auth.activeRole || auth.userProfile.role) as PeranPengguna;
       setPenggunaAktif({
         id: auth.userProfile.uid,
         nama: auth.userProfile.nama,
         nomorInduk: auth.userProfile.nomorInduk,
         kelas: auth.userProfile.kelas || undefined,
-        peran: auth.userProfile.role,
+        peran: currentRole,
       });
-      setPeranAktif(auth.userProfile.role);
+      setPeranAktif(currentRole);
     }
-  }, [auth?.userProfile]);
+  }, [auth?.userProfile, auth?.activeRole]);
 
   // State daftar jadwal sesi praktikum
   const [daftarSesi, setDaftarSesi] = useState<JadwalSesi[]>(DUMMY_SESI);
@@ -77,15 +86,118 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [daftarPresensi, setDaftarPresensi] =
     useState<CatatanPresensi[]>(DUMMY_PRESENSI);
 
+  // Sinkronisasi Sesi Real-Time dari Cloud Firestore (SRS-FT-02 & SRS-FT-04)
+  useEffect(() => {
+    let unsubscribeSessions: (() => void) | null = null;
+    let unsubscribeAttendances: (() => void) | null = null;
+
+    try {
+      unsubscribeSessions = subscribeToSessions(
+        (firestoreSessions: any[]) => {
+          if (firestoreSessions && firestoreSessions.length > 0) {
+            const mappedSessions: JadwalSesi[] = firestoreSessions.map((docItem) => {
+              const isOpen =
+                docItem.status === 'open' || docItem.statusSesi === 'DIBUKA';
+              const isDone =
+                docItem.statusSesi === 'SELESAI' ||
+                (!isOpen && docItem.waktuTutup != null);
+              const status: 'DIBUKA' | 'DITUTUP' | 'SELESAI' = isOpen
+                ? 'DIBUKA'
+                : isDone
+                ? 'SELESAI'
+                : 'DITUTUP';
+
+              return {
+                id: docItem.id,
+                kodeMataKuliah: docItem.kodeMataKuliah || 'PPK-2026',
+                namaPraktikum: docItem.namaPraktikum || 'Praktikum',
+                topikMateri: docItem.topikMateri || '',
+                kelas: docItem.kelas || 'TI-3A',
+                ruangLab: docItem.ruangLab || 'Laboratorium',
+                hari: docItem.hari || 'Senin',
+                jamMulai: docItem.jamMulai || '08:00',
+                jamSelesai: docItem.jamSelesai || '10:30',
+                namaAsisten: docItem.namaAsisten || 'Asisten Lab',
+                status,
+                tanggalAktif:
+                  docItem.tanggalAktif ||
+                  new Date().toISOString().split('T')[0],
+              };
+            });
+            setDaftarSesi(mappedSessions);
+          }
+        },
+        (sessionError: Error) => {
+          console.warn('Gagal sinkronisasi sesi dari Firestore:', sessionError);
+        }
+      );
+    } catch (err) {
+      console.warn('Inisialisasi listener sesi Firestore gagal:', err);
+    }
+
+    try {
+      const qAttendances = query(collection(db, COLLECTIONS.ATTENDANCES));
+      unsubscribeAttendances = onSnapshot(
+        qAttendances,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const mappedList: CatatanPresensi[] = snapshot.docs.map((docSnap) => {
+              const d = docSnap.data();
+              return {
+                id: docSnap.id,
+                sesiId: d.sessionId || '',
+                praktikanId: d.studentId || '',
+                namaPraktikan: d.studentName || 'Praktikan',
+                nimPraktikan: d.studentNim || '-',
+                kelasPraktikan: d.studentClass || 'TI-3A',
+                waktuPresensi: d.waktuPresensi || 'WIB',
+                statusKehadiran: d.statusKehadiran || 'HADIR',
+                catatan: d.catatan || '',
+              };
+            });
+            setDaftarPresensi(mappedList);
+          }
+        },
+        (attendError) => {
+          console.warn('Gagal sinkronisasi presensi dari Firestore:', attendError);
+        }
+      );
+    } catch (err) {
+      console.warn('Inisialisasi listener presensi Firestore gagal:', err);
+    }
+
+    return () => {
+      if (unsubscribeSessions) unsubscribeSessions();
+      if (unsubscribeAttendances) unsubscribeAttendances();
+    };
+  }, []);
+
   /**
    * Fungsi untuk mengganti peran aktif antara 'asisten' dan 'praktikan'
+   * Menjaga identitas akun asli login jika ada, atau fallback ke dummy untuk tamu.
    */
   const gantiPeran = (peran: PeranPengguna): void => {
     setPeranAktif(peran);
-    if (peran === 'asisten') {
-      setPenggunaAktif(DUMMY_ASISTEN[0]);
+    if (auth?.setActiveRole) {
+      auth.setActiveRole(peran);
+    }
+
+    if (auth?.userProfile) {
+      // Pertahankan identitas nama & data asli pengguna yang sedang login
+      setPenggunaAktif({
+        id: auth.userProfile.uid,
+        nama: auth.userProfile.nama,
+        nomorInduk: auth.userProfile.nomorInduk,
+        kelas: auth.userProfile.kelas || undefined,
+        peran: peran,
+      });
     } else {
-      setPenggunaAktif(DUMMY_PRAKTIKAN[0]);
+      // Tamu / demo offline
+      if (peran === 'asisten') {
+        setPenggunaAktif(DUMMY_ASISTEN[0]);
+      } else {
+        setPenggunaAktif(DUMMY_PRAKTIKAN[0]);
+      }
     }
   };
 
@@ -99,13 +211,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     if (target) {
       setPenggunaAktif(target);
       setPeranAktif(target.peran);
+      if (auth?.setActiveRole) {
+        auth.setActiveRole(target.peran);
+      }
     }
   };
 
   /**
-   * Fungsi Asisten: Membuka sesi praktikum
+   * Fungsi Asisten: Membuka sesi praktikum (Tersinkronisasi Real-Time ke Cloud Firestore)
    */
   const bukaSesi = (sesiId: string, ruangLab?: string): void => {
+    // 1. Optimistic update
     setDaftarSesi((prevSesi) =>
       prevSesi.map((s) => {
         if (s.id === sesiId) {
@@ -118,12 +234,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         return s;
       })
     );
+
+    // 2. Tembus langsung ke Cloud Firestore
+    openSession(sesiId, ruangLab).catch((err) =>
+      console.warn('Gagal sinkron openSession ke Firestore:', err)
+    );
   };
 
   /**
-   * Fungsi Asisten: Menutup sesi praktikum
+   * Fungsi Asisten: Menutup sesi praktikum (Tersinkronisasi Real-Time ke Cloud Firestore)
    */
   const tutupSesi = (sesiId: string): void => {
+    // 1. Optimistic update
     setDaftarSesi((prevSesi) =>
       prevSesi.map((s) => {
         if (s.id === sesiId) {
@@ -134,6 +256,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         }
         return s;
       })
+    );
+
+    // 2. Tembus langsung ke Cloud Firestore
+    closeSession(sesiId).catch((err) =>
+      console.warn('Gagal sinkron closeSession ke Firestore:', err)
     );
   };
 

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { radius, spacing } from '@/theme';
 
 export interface AppHeaderProps {
@@ -27,7 +28,17 @@ export interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = () => {
   const { peranAktif, penggunaAktif, gantiPeran, tema, modeTema } = useApp();
+  const { userProfile } = useAuth();
   const [roleModalVisible, setRoleModalVisible] = useState<boolean>(false);
+
+  // Label opsi peran kontekstual akun login
+  const praktikanSubLabel = userProfile
+    ? `${userProfile.nama} · ${userProfile.nomorInduk || 'Mahasiswa'}${userProfile.kelas ? ` (${userProfile.kelas})` : ''}`
+    : 'Ahmad Fauzi · 2141720001 (TI-3A)';
+
+  const asistenSubLabel = userProfile
+    ? `${userProfile.nama} · Asisten Laboratorium`
+    : 'Rian Hidayat, S.Kom. · Koordinator RPL';
 
   // Dapatkan inisial 2 huruf dari nama pengguna
   const inisial = penggunaAktif.nama
@@ -183,7 +194,7 @@ export const AppHeader: React.FC<AppHeaderProps> = () => {
                 <Text
                   style={[styles.optionSubtitle, { color: tema.textSecondary }]}
                 >
-                  Ahmad Fauzi · 2141720001 (TI-3A)
+                  {praktikanSubLabel}
                 </Text>
               </View>
               {peranAktif === 'praktikan' && (
@@ -248,7 +259,7 @@ export const AppHeader: React.FC<AppHeaderProps> = () => {
                 <Text
                   style={[styles.optionSubtitle, { color: tema.textSecondary }]}
                 >
-                  Rian Hidayat, S.Kom. · Koordinator RPL
+                  {asistenSubLabel}
                 </Text>
               </View>
               {peranAktif === 'asisten' && (
