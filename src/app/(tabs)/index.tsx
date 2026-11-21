@@ -93,30 +93,17 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
-      {/* BANNER REVISI SPRINT 2 - MODUL FARREL (SRS-FT-02, 03, 04) */}
+      {/* BANNER SHORTCUT SPRINT 2 */}
       <View
         style={{
           backgroundColor: tema.surface,
           borderColor: tema.border,
           borderWidth: 1,
           borderRadius: 14,
-          padding: 12,
-          marginBottom: 14,
-          gap: 8,
+          padding: 10,
+          marginBottom: 10,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="cube-outline" size={18} color={tema.accent} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: tema.textPrimary }}>
-              Modul Firestore Sprint 2 (Farrel)
-            </Text>
-          </View>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: tema.accent, backgroundColor: tema.accentSurface || '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-            SRS-02 • 03 • 04
-          </Text>
-        </View>
-
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -134,7 +121,7 @@ export default function JadwalSesiScreen(): React.JSX.Element {
           >
             <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
             <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-              Kelola Sesi (sesi.tsx)
+              Kelola Sesi
             </Text>
           </TouchableOpacity>
 
@@ -156,36 +143,23 @@ export default function JadwalSesiScreen(): React.JSX.Element {
           >
             <Ionicons name="checkbox-outline" size={15} color={tema.textPrimary} />
             <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-              Presensi (presensi-firestore)
+              Presensi Firestore
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* BANNER SPRINT 3 - MODUL MARCEL & AZLAN (SRS-FT-09 s.d. 14) */}
+      {/* BANNER SHORTCUT SPRINT 3 */}
       <View
         style={{
           backgroundColor: tema.surface,
           borderColor: tema.border,
           borderWidth: 1,
           borderRadius: 14,
-          padding: 12,
+          padding: 10,
           marginBottom: 14,
-          gap: 8,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="navigate-circle-outline" size={18} color="#2563EB" />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: tema.textPrimary }}>
-              Modul Peta, Lokasi & Notifikasi (Sprint 3)
-            </Text>
-          </View>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: '#2563EB', backgroundColor: '#EFF6FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-            FT-09 • 10 • 11 • 12 • 13 • 14
-          </Text>
-        </View>
-
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -530,11 +504,13 @@ const styles = StyleSheet.create({
   cardSubline: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
   },
   sublineText: {
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 1,
   },
   sublineSep: {
     fontSize: 12,

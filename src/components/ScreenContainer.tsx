@@ -13,13 +13,14 @@
 import React, { ReactNode, useEffect } from 'react';
 import {
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   View,
   ViewStyle,
   StyleProp,
   Platform,
+  StatusBar as RNStatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useApp } from '@/context/AppContext';
 import { AppHeader } from '@/components/AppHeader';
@@ -48,6 +49,13 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   style,
 }) => {
   const { tema, modeTema } = useApp();
+  const insets = useSafeAreaInsets();
+
+  // Hitung padding atas aman untuk Android dan iOS agar tidak tertutup notch / status bar
+  const topInset =
+    Platform.OS === 'android'
+      ? Math.max(insets.top, RNStatusBar.currentHeight || 0) + 10
+      : insets.top;
 
   // Injeksi Google Font Figtree pada runtime browser web agar identik dengan trydesign.html
   useEffect(() => {
@@ -75,10 +83,13 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   }, []);
 
   return (
-    <SafeAreaView
+    <View
       style={[
         styles.safeArea,
-        { backgroundColor: tema.canvas },
+        {
+          backgroundColor: tema.canvas,
+          paddingTop: topInset,
+        },
         style,
       ]}
     >
@@ -98,7 +109,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
           </ScrollView>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

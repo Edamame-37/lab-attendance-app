@@ -632,15 +632,20 @@ const styles = StyleSheet.create({
   verifiedMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   verifiedMetaKey: {
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 0,
   },
   verifiedMetaVal: {
     fontSize: 12,
     fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+    flexWrap: 'wrap',
   },
   statusBadge: {
     paddingHorizontal: 8,
