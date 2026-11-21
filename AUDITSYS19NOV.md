@@ -333,3 +333,306 @@ Dokumen yang tetap menjadi sumber dokumentasi proyek:
 - `AGENTS.md`;
 - `AUDITSYS19NOV.md`.
 
+---
+
+## 13. Addendum Audit Ulang - 21 November 2026
+
+### 13.1 Tujuan, Baseline, dan Batasan
+
+Addendum ini memperbarui audit 19 November tanpa menghapus histori temuan lama. Audit ulang dilakukan terhadap commit berikut:
+
+- `11c9e0b` - perbaikan pengambilan lokasi ketika sesi/lab belum tersedia;
+- `2dfe09f` - perbaikan resolusi dependency WebSocket untuk Expo tunnel;
+- seluruh implementasi Sprint 1, Sprint 2, dan Sprint 3 sampai 21 November 2026.
+
+Baseline repository ketika audit dimulai:
+
+- 92 tracked files;
+- 65 source files JavaScript/TypeScript;
+- sekitar 15.612 baris source pada `src/` dan `ai/`;
+- 34 file `.tsx`, 28 file `.js`, dan 4 file `.ts` di repository;
+- `ios/` dan `android/` tidak ada, sehingga proyek tetap menggunakan Continuous Native Generation;
+- working tree bersih setelah dua commit perbaikan di atas;
+- tidak ditemukan `.env` yang tracked; hanya `.env.example` yang masuk source control.
+
+Audit ini meliputi pembacaan source, pemeriksaan konfigurasi, dependency tree, Firestore Rules, route, data flow, lint, typecheck, Expo Doctor, production web export, dan pengujian startup Expo tunnel. Audit tidak melakukan:
+
+- penetration test terhadap Firebase project produksi;
+- deployment Firestore Rules ke project produksi;
+- Rules Emulator test karena test suite belum tersedia;
+- pengujian GPS, Maps, notification delivery, dan permission pada perangkat fisik;
+- EAS cloud build atau store submission;
+- verifikasi pembatasan Google Maps API key di Google Cloud Console.
+
+### 13.2 Arsitektur Aktual Setelah Sprint 3
+
+```mermaid
+flowchart TD
+    Startup["Expo Router Root Layout"] --> Auth["AuthProvider / Firebase Auth"]
+    Auth -->|Belum login| Login["Login / Register"]
+    Auth -->|Sudah login| App["AppProvider"]
+
+    App --> Tabs["Tab Jadwal / Presensi / Rekap / Profil"]
+    Tabs --> Dummy["DUMMY_SESI + DUMMY_PRESENSI\nstate in-memory"]
+    Tabs --> FirestoreRoutes["Route sesi, izin, lab, peta, presensi lokasi"]
+
+    FirestoreRoutes --> Services["Auth / Firestore / Lab / Permission services"]
+    Services --> Firestore["Cloud Firestore"]
+    Firestore --> Rules["firestore.rules"]
+
+    FirestoreRoutes --> Location["Expo Location"]
+    Location --> Radius["Validasi radius client + Rules"]
+    Location --> Map["react-native-maps + live watcher"]
+
+    NotificationHelpers["Helper FT-13"] -. "belum dipanggil event" .-> LocalNotification["scheduleNotificationAsync\nperangkat yang sama"]
+    NotificationHelpers -. "belum ada backend/token store" .-> RemoteRecipients["Perangkat penerima"]
+```
+
+Arsitektur masih memiliki dua jalur data. Tab utama memakai data dummy dari `AppContext`, sedangkan fitur Sprint 2 dan Sprint 3 memakai Firestore. Route dan UI terlihat terintegrasi, tetapi status sesi/presensi pada kedua jalur dapat berbeda.
+
+### 13.3 Hasil Validasi Teknis Terkini
+
+| Pemeriksaan | Hasil 21 November 2026 |
+| :--- | :--- |
+| `npx expo install --check` | Lulus - dependency Expo sesuai SDK 58 |
+| `npx expo-doctor` | Lulus 20/20 |
+| `npx tsc --noEmit` | Lulus; catatan: sebagian besar file `.js` tidak memperoleh jaminan type safety setara `.ts/.tsx` |
+| `npx expo config --type public` | Lulus; SDK 58, package Android, bundle identifier iOS, Updates URL, dan project ID terbaca |
+| `npm ls @expo/ws-tunnel ws --all` | Lulus; tunnel memakai `ws@8.23.0`, sedangkan React Native/Metro memakai nested `ws@7.5.14` |
+| Expo tunnel development client | Lulus pada port 8082; QR dan URL `on.expo.app` berhasil dibuat |
+| Production web export | Lulus; 20 HTML output, 79 file, sekitar 8,0 MB total output |
+| JavaScript hasil web export | Sekitar 3,30 MB; common chunk 1,65 MB dan entry chunk 1,12 MB |
+| `git diff --check` | Lulus sebelum penulisan addendum |
+| `npx expo lint --no-cache` | Gagal - 12 error dan 20 warning |
+| `npm audit` | 8 advisory: 5 High, 3 Moderate, 0 Critical |
+| Automated tests | Tidak tersedia; `src/app/test-farrel.tsx` adalah layar pengujian manual, bukan automated test |
+
+Kelompok lint saat audit ulang:
+
+- 8 `react-hooks/set-state-in-effect`;
+- 2 `react-hooks/static-components`;
+- 2 `react/no-unescaped-entities`;
+- 1 `react-hooks/exhaustive-deps`;
+- 11 unused variable/import warning;
+- 3 ambiguity default/named import;
+- 2 duplicate import warning.
+
+Targeted lint untuk `AttendanceCheckScreen.js` dan `RadiusStatusCard.js` lulus setelah perbaikan lokasi.
+
+### 13.4 Delta terhadap Audit 19 November
+
+| Temuan Lama | Status Audit Ulang | Bukti/Perubahan |
+| :--- | :--- | :--- |
+| H-01 Integritas presensi belum ditegakkan Rules | **Sebagian besar terselesaikan** | `firestore.rules:65-143` kini memvalidasi ID deterministik, UID, sesi terbuka, lab aktif, timestamp, radius, dan selisih jarak. Risiko spoofing koordinat, role, enrollment, serta identitas profil masih tersisa. |
+| H-02 Data peserta sesi terbuka | **Masih berlaku** | `sessions` dapat dibaca semua pengguna login (`firestore.rules:189-196`) dan payload masih membawa `daftarPeserta`. |
+| H-03 Akun Auth tanpa profil | **Masih berlaku** | Kegagalan penulisan profil hanya melakukan `signOut()`, bukan `deleteUser()` (`src/services/authService.js:90-128`). |
+| H-04 Dependency advisories | **Masih berlaku** | Tetap 5 High dan 3 Moderate. |
+| M-01 Dua sumber data | **Masih berlaku** | `AppContext` tetap memakai `DUMMY_SESI` dan `DUMMY_PRESENSI`; route baru memakai Firestore. |
+| M-02 Simulasi role | **Masih berlaku** | Pengalih role tersedia pada header, profil, tab presensi, dan `sesi.tsx`. Backend tetap terlindungi Rules, tetapi UI dapat menampilkan kontrol role lain. |
+| M-03 Query attendance praktikan vs Rules | **Sebagian terselesaikan** | Flow utama `AttendanceCheckScreen` memakai dokumen deterministik milik user. Listener seluruh attendance masih ada di `useAttendance` dan dapat terpicu melalui simulator/route legacy. |
+| M-04 Index izin | **Masih berlaku** | Tidak ada `firestore.indexes.json`, sedangkan query memakai `studentId ==` dan `orderBy(createdAt desc)`. |
+| M-05 AI dapat dimanipulasi client | **Masih berlaku** | Hasil AI tetap dihitung dan dikirim client. Label eksperimental sudah dipertahankan. |
+| M-06 Hub Sprint 2 tidak memiliki jalur masuk | **Masih berlaku** | `fitur-sprint2` terdaftar tetapi tidak ditautkan dari tab utama; fitur izin/review bergantung deep link atau route hub tersebut. |
+| M-07 Lint | **Membaik tetapi belum lulus** | Dari 21 error/17 warning menjadi 12 error/20 warning pada run tanpa cache. |
+| M-08 Kelas belum lengkap | **Masih berlaku** | Konstanta `classes` ada, tetapi CRUD, Rules, dan model enrollment kelas belum tersedia. |
+
+### 13.5 Temuan Audit Ulang - Critical
+
+Tidak ditemukan temuan Critical dari pemeriksaan statis. Kesimpulan ini tidak menggantikan penetration test, Rules Emulator test, atau pengujian Firebase produksi.
+
+### 13.6 Temuan Audit Ulang - High
+
+#### A21-H01 - FT-13 belum mengirim push notification ke perangkat penerima
+
+`notificationService.js` dapat memperoleh Expo Push Token dan mendefinisikan helper sesi/jadwal/izin, tetapi:
+
+- tidak ada pemanggil `notifySessionOpened`, `notifyScheduleChanged`, atau `notifyLeaveDecision` di source selain definisinya sendiri;
+- push token tidak pernah disimpan atau dikaitkan dengan UID pengguna;
+- tidak ada backend/Cloud Function yang mengirim ke Expo Push Service;
+- helper event memakai `scheduleNotificationAsync`, sehingga notifikasi muncul pada perangkat yang menjalankan fungsi, bukan perangkat mahasiswa target;
+- `targetStudentIds` hanya disimpan sebagai metadata local notification dan tidak mengatur penerima;
+- listener receive/response juga belum dipasang oleh aplikasi;
+- `app.json` belum mendaftarkan config plugin `expo-notifications`;
+- Android notification channel tidak dibuat sebelum pengambilan push token. Pada Android 13, permission prompt/token flow membutuhkan channel terlebih dahulu.
+
+Bukti utama: `src/services/notificationService.js:15-218`, pencarian penggunaan helper, serta `app.json:32-48`.
+
+Dampak: pembukaan sesi, perubahan jadwal, dan keputusan izin tidak dikirim ke pengguna terkait. Pesan sukses helper berpotensi memberi kesan pengiriman remote berhasil padahal hanya local scheduling.
+
+Rekomendasi: buat lifecycle token per UID/perangkat, Firestore Rules untuk token, backend trusted untuk fan-out, pemicu event yang idempotent, Android channel, config plugin/credentials, listener navigation, dan delivery receipt handling.
+
+#### A21-H02 - Validasi radius belum membuktikan lokasi asli dan belum membatasi enrollment
+
+Rules sekarang menghitung ulang jarak dan menolak nilai `distanceMeters` yang tidak cocok. Perbaikan ini menutup banyak celah audit lama. Namun `attendance.location` tetap dikirim oleh client. Client yang dimodifikasi dapat mengirim koordinat laboratorium beserta timestamp baru dan memenuhi Rules.
+
+Selain itu, `validAttendanceCreate()` belum memastikan:
+
+- profil pemohon memiliki role `praktikan`;
+- praktikan terdaftar pada sesi atau kelas terkait;
+- `studentName`, `studentNim`, dan `studentClass` sama dengan dokumen `users/{uid}`;
+- akurasi lokasi berada di bawah ambang yang dapat diterima.
+
+Dampak: akun apa pun yang terautentikasi, termasuk asisten atau praktikan dari kelas lain, dapat membuat attendance untuk sesi terbuka selama payload memenuhi struktur. Identitas tampilan dan koordinat dapat dipalsukan oleh client yang dimodifikasi.
+
+Rekomendasi: validasi role dan canonical profile pada Rules, bangun enrollment berbasis UID, tetapkan kebijakan accuracy, aktifkan App Check sebagai defense-in-depth, dan dokumentasikan batas bahwa GPS client tidak dapat dianggap bukti anti-spoof yang absolut.
+
+#### A21-H03 - Data peserta sesi masih terbuka untuk seluruh pengguna login
+
+`firestore.rules:190` mengizinkan seluruh pengguna terautentikasi membaca semua sesi. `firestoreService.js` dan seed data menyimpan `daftarPeserta` berupa nama dan NIM di dokumen yang sama.
+
+Dampak: pengguna dapat membaca daftar peserta sesi/kelas lain. Firestore Rules tidak dapat menyembunyikan sebagian field dari dokumen yang sudah diizinkan dibaca.
+
+Rekomendasi: pisahkan data publik sesi dan enrollment privat, gunakan UID sebagai referensi, dan batasi query enrollment berdasarkan asisten atau kepemilikan pengguna.
+
+#### A21-H04 - Registrasi masih dapat meninggalkan akun Firebase Auth tanpa profil
+
+Alur `registerUser()` membuat akun Auth terlebih dahulu. Jika `updateProfile()` atau `setDoc(users/{uid})` gagal, catch hanya memanggil `signOut(auth)`.
+
+Dampak: email sudah terdaftar tetapi akun tidak dapat melewati validasi profil aplikasi dan tidak dapat didaftarkan ulang secara normal.
+
+Rekomendasi: lakukan rollback `deleteUser(user)` ketika provisioning profil gagal, atau pindahkan provisioning ke backend trusted yang memiliki mekanisme transaksi/kompensasi dan logging.
+
+#### A21-H05 - Dependency advisories belum terselesaikan
+
+`npm audit` melaporkan:
+
+- jalur Firebase Firestore ke `@grpc/grpc-js` - High;
+- `node-forge` melalui Expo CLI, Expo code signing, dan Expo Updates - High;
+- `minimatch` melalui Expo fingerprint - Moderate.
+
+`npm audit` menawarkan downgrade lintas major ke Expo 52/Firebase 9 untuk sebagian advisory, sehingga `npm audit fix --force` tidak aman digunakan. `firebase` saat audit berada pada 13.2.0, sedangkan versi wanted/latest yang terlihat adalah 13.4.0.
+
+Rekomendasi: uji upgrade Firebase yang kompatibel, pantau patch Expo SDK 58, nilai reachability mobile vs tooling, dan jangan menggunakan override/downgrade tanpa regression test.
+
+### 13.7 Temuan Audit Ulang - Medium
+
+#### A21-M01 - Dua sumber data dan role simulator tetap aktif pada jalur produksi
+
+Tab utama memakai state dummy, sedangkan route Sprint 2/3 memakai Firestore. Pengguna juga dapat mengganti role tampilan menjadi asisten. Pada `sesi.tsx`, praktikan dapat membuka tampilan CRUD asisten; Rules menolak write, tetapi UI menampilkan aksi yang tidak berwenang dan dapat memicu listener yang ditolak.
+
+Rekomendasi: jadikan Firestore sumber produksi tunggal dan aktifkan simulator hanya melalui development flag/build khusus demo.
+
+#### A21-M02 - Rules pengajuan izin belum cukup ketat
+
+Create rule hanya memakai `hasAll`, bukan `hasOnly`, dan belum memvalidasi role, tipe, panjang alasan, session existence, session ownership/enrollment, `createdAt == request.time`, atau duplikasi pengajuan per sesi. Review menyimpan nama bebas pada `reviewedBy` dan tidak mengikatnya ke UID reviewer.
+
+Rekomendasi: gunakan ID deterministik atau uniqueness strategy, validasi field/type/timestamp/session, batasi create ke praktikan, dan simpan `reviewedByUid` dari `request.auth.uid`.
+
+#### A21-M03 - Index query izin belum dideklarasikan di repository
+
+Query `studentId == ...` dengan `orderBy(createdAt, desc)` memerlukan index manual. Repository hanya mereferensikan `firestore.rules`; tidak ada `firestore.indexes.json` pada `firebase.json`.
+
+Rekomendasi: deklarasikan dan deploy index bersama Rules agar environment baru dapat direproduksi.
+
+#### A21-M04 - Menonaktifkan lab dapat mengunci sesi aktif
+
+Lab dapat diubah menjadi `isActive: false` tanpa memeriksa sesi terkait. Rules session mensyaratkan `labExistsAndActive()` pada setiap update. Akibatnya sesi yang menunjuk lab nonaktif tidak dapat ditutup atau diedit sampai lab diaktifkan kembali; attendance juga langsung ditolak.
+
+Rekomendasi: larang deactivation saat ada sesi terbuka, atau lakukan transaksi terkoordinasi yang menutup/memindahkan sesi sebelum lab dinonaktifkan.
+
+#### A21-M05 - Data lokasi presensi belum memiliki kebijakan privasi dan retensi
+
+Attendance menyimpan GeoPoint presisi, akurasi, jarak, dan waktu pengambilan. Asisten dapat membaca data tersebut tanpa kebijakan retensi, penghapusan, atau minimisasi yang terdokumentasi.
+
+Rekomendasi: tentukan tujuan, masa retensi, akses, penghapusan, dan pemberitahuan privasi. Pertimbangkan menyimpan hasil validasi/radius tanpa mempertahankan koordinat presisi lebih lama dari kebutuhan audit.
+
+#### A21-M06 - Typecheck tidak mencakup kualitas sebagian besar modul JavaScript
+
+TypeScript strict aktif, tetapi 28 file `.js` mencakup auth, service, hook, maps, notification, dan screen besar. `tsc --noEmit` dapat lulus meskipun kesalahan tipe pada file JavaScript tidak terdeteksi.
+
+Rekomendasi: migrasikan service/hook kritis ke TypeScript atau aktifkan strategi `checkJs` bertahap dengan JSDoc yang tervalidasi.
+
+#### A21-M07 - Automated test dan Rules test belum tersedia
+
+Tidak ada unit, integration, E2E, atau Firestore Rules Emulator test. Layar `test-farrel.tsx` adalah manual test route dan tetap masuk production route/export.
+
+Rekomendasi: prioritaskan Rules tests untuk auth, enrollment, radius, duplicate attendance, izin, dan role; kemudian tambah service tests serta E2E untuk jalur login-presensi-review.
+
+#### A21-M08 - Lint dan ukuran modul menunjukkan debt pemeliharaan
+
+Lint masih gagal 12 error/20 warning. `src/app/sesi.tsx` sekitar 1.410 baris, beberapa screen lain 500-700 baris, dan komponen dibuat saat render pada `LabActivitySheet`.
+
+Rekomendasi: perbaiki effect berdasarkan data flow, pindahkan komponen statis keluar render, pecah screen berdasarkan tanggung jawab, dan jangan menonaktifkan aturan lint secara global.
+
+#### A21-M09 - Navigasi fitur izin dan route evaluasi belum production-ready
+
+`fitur-sprint2` dan `test-farrel` terdaftar sebagai route tetapi tidak memiliki jalur normal dari tab utama. Fitur izin/review menjadi sulit ditemukan, sementara test route tetap dapat dibuka melalui deep link oleh pengguna login.
+
+Rekomendasi: integrasikan menu izin berdasarkan role dan keluarkan route evaluasi dari production build.
+
+### 13.8 Temuan Audit Ulang - Low
+
+- Accessibility coverage rendah: ditemukan sekitar 108 `TouchableOpacity`, 5 `Pressable`, tetapi hanya 8 accessibility props. Banyak tombol ikon belum memiliki label/role/state yang memadai.
+- Google Maps API key dan fallback Firebase client config tersimpan pada tracked source. Firebase client config bukan server secret, tetapi Google Maps key harus dibatasi berdasarkan Android package/SHA dan API yang diperlukan.
+- `package.json` masih version `1.0.0`, sedangkan `app.json` version `1.1.0`.
+- Banyak route memakai cast `as any`, sehingga typed routes tidak memberikan perlindungan penuh.
+- Seed session tidak idempotent dan membawa identitas/NIM contoh ke Firestore.
+- Delete session tidak menangani attendance atau leave request yang menjadi orphan.
+- `getStudentAttendanceHistory()` mengembalikan array kosong saat query gagal, sehingga error dapat terlihat seperti kondisi tanpa data.
+- Tanggal `26 Okt`, identitas demo, kelas, ruangan, dan nama asisten masih hard-coded pada beberapa UI/service.
+- Dokumentasi README masih berfokus pada Sprint 1-2; struktur dan alur Sprint 3 belum direkonsiliasi. `PRAKMOBILE3.md` juga masih menyarankan `git add .`, bertentangan dengan `AGENTS.md`.
+- Common dan entry chunk web relatif besar; belum ada performance budget atau bundle analysis rutin.
+
+### 13.9 Audit Modul Terkini
+
+| Modul | Status | Catatan Utama |
+| :--- | :--- | :--- |
+| Autentikasi | **Parsial** | Login, persistence, profil, dan role berjalan; rollback registrasi belum aman. |
+| Navigasi/otorisasi UI | **Parsial** | Role guard tersedia pada route sensitif baru; simulator role dan test route masih aktif. |
+| Sesi praktikum | **Parsial** | CRUD realtime tersedia; model kelas/enrollment belum lengkap dan dokumen sesi membawa PII. |
+| Presensi satu kali | **Parsial, membaik** | ID deterministik dan invariant utama sudah ditegakkan Rules; enrollment, canonical identity, accuracy, dan spoofing belum ditangani. |
+| Pengajuan izin | **Parsial** | Submit/realtime/review transaction tersedia; Rules, uniqueness, index, dan reviewer identity perlu diperkuat. |
+| AI EDOM | **Eksperimental** | Inferensi lokal berjalan; hasil client tidak tepercaya dan tidak boleh menjadi keputusan otomatis. |
+| CRUD laboratorium | **Terimplementasi dengan catatan** | Rules field/type cukup ketat; deactivation dapat mengunci sesi terkait. |
+| Peta laboratorium | **Terimplementasi statis** | Marker lab, marker user, watcher lokasi, dan activity sheet tersedia; perangkat fisik belum diuji dalam audit. |
+| Push notification | **Belum terimplementasi end-to-end** | Token/helper ada, tetapi tidak ada trigger, token store, backend send, recipient delivery, channel, atau listener integration. |
+| Kondisi perangkat | **Parsial** | Permission, GPS, network, watcher, dan banner tersedia terutama pada layar peta; lint effect masih gagal dan coverage antar-screen tidak konsisten. |
+| Build/Update | **Siap untuk validasi lanjutan** | Doctor, dependency check, export, dan tunnel lulus; EAS cloud build dan OTA delivery belum diuji. |
+
+### 13.10 Matriks Kepatuhan SRS FT-01 sampai FT-14
+
+| SRS | Status Audit Ulang | Catatan |
+| :--- | :--- | :--- |
+| FT-01 Autentikasi | Parsial | Login/register berjalan; rollback akun tanpa profil belum aman. |
+| FT-02 CRUD sesi dan kelas | Parsial | CRUD sesi tersedia; kelas/enrollment belum menjadi domain lengkap. |
+| FT-03 Presensi satu kali | Parsial, membaik | Deterministic ID sudah ditegakkan Rules; role/enrollment/canonical identity belum. |
+| FT-04 Realtime sync | Parsial | Listener tersedia dan dibersihkan; listener legacy/simulator dapat bertentangan dengan Rules. |
+| FT-05 Pengajuan izin | Parsial | Submit berjalan; uniqueness, Rules schema, dan index belum lengkap. |
+| FT-06 AI EDOM | Eksperimental | Inferensi lokal tersedia dan manipulable oleh client. |
+| FT-07 Review izin | Parsial | Transaction tersedia; reviewer UID dan remote notification belum terintegrasi. |
+| FT-08 Validasi/keamanan | Parsial | Rules membaik signifikan, tetapi privacy, role/enrollment, dan test coverage belum cukup. |
+| FT-09 Halaman presensi khusus | Terimplementasi | Screen khusus, session selector, duplicate status, dan empty/error states tersedia. |
+| FT-10 Validasi lokasi/radius | Parsial, membaik | Client dan Rules menghitung radius; koordinat client masih dapat dipalsukan dan accuracy tidak dibatasi. |
+| FT-11 CRUD lokasi lab | Terimplementasi dengan catatan | CRUD/deactivation tersedia; konsistensi terhadap sesi aktif belum dijaga. |
+| FT-12 Peta interaktif | Terimplementasi secara statis | Live watcher dan marker tersedia; pengujian perangkat fisik belum dilakukan. |
+| FT-13 Push notification event | Belum terpenuhi | Implementasi hanya helper/local notification tanpa delivery ke perangkat target. |
+| FT-14 Permission/kondisi perangkat | Parsial | Hook/banner tersedia; notification channel/token flow dan integrasi lintas screen belum lengkap. |
+
+### 13.11 Prioritas Rekomendasi Audit Ulang
+
+Urutan yang direkomendasikan:
+
+1. Implementasikan FT-13 end-to-end: channel, permission, token lifecycle, token store, backend sender, event trigger, receipt, dan deep-link handler.
+2. Perkuat authorization attendance dengan role praktikan, enrollment UID, canonical profile, dan accuracy policy; dokumentasikan threat model spoofing lokasi.
+3. Pisahkan `daftarPeserta` dari dokumen sesi publik dan tetapkan kebijakan privasi/retensi koordinat presensi.
+4. Tambahkan rollback `deleteUser()` atau provisioning backend untuk registrasi.
+5. Tambahkan Firestore Rules Emulator tests sebelum deployment Rules berikutnya.
+6. Perketat Rules izin dan commit `firestore.indexes.json` bersama konfigurasi Firebase.
+7. Satukan sumber data produksi dan nonaktifkan role simulator/test routes pada production build.
+8. Jaga konsistensi lab-sesi saat deactivation menggunakan transaksi atau precondition.
+9. Triase dependency advisories melalui patch Expo/Firebase yang kompatibel, tanpa `audit fix --force`.
+10. Selesaikan 12 error lint, migrasikan modul kritis JavaScript ke TypeScript, dan pecah screen besar.
+11. Tambahkan automated tests, accessibility labels/roles, serta performance budget.
+12. Sinkronkan README/PRAKMOBILE3 dengan arsitektur, route, dan workflow Git terkini.
+
+### 13.12 Referensi Teknis Audit Ulang
+
+- Expo SDK 58 Location: <https://docs.expo.dev/versions/v58.0.0/sdk/location/>
+- Expo SDK 58 Notifications: <https://docs.expo.dev/versions/v58.0.0/sdk/notifications/>
+- Expo runtime versions: <https://docs.expo.dev/eas-update/runtime-versions/>
+- Firestore index overview: <https://firebase.google.com/docs/firestore/query-data/index-overview>
+- Firestore Rules query behavior: <https://firebase.google.com/docs/firestore/security/rules-query>
+- Firestore field/type validation: <https://firebase.google.com/docs/firestore/security/rules-fields>
+
+Kesimpulan audit ulang: proyek telah mengalami peningkatan nyata pada integritas presensi, kompatibilitas Expo SDK 58, alur lokasi, dan tooling development tunnel. Sistem tetap belum production-safe karena push notification belum end-to-end, lokasi client masih dapat dipalsukan, enrollment/canonical identity belum ditegakkan, PII peserta terlalu terbuka, rollback auth belum aman, dan automated security tests belum tersedia.
+

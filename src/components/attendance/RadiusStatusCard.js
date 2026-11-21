@@ -3,7 +3,14 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 
-const getStatusPresentation = ({ isLoading, error, location, distanceMeters, radiusMeters }) => {
+const getStatusPresentation = ({
+  isLoading,
+  error,
+  location,
+  distanceMeters,
+  radiusMeters,
+  hasConfiguredLabLocation,
+}) => {
   if (isLoading) {
     return { icon: 'locate-outline', label: 'Mengambil lokasi perangkat', color: '#2563EB' };
   }
@@ -16,6 +23,9 @@ const getStatusPresentation = ({ isLoading, error, location, distanceMeters, rad
     Number.isFinite(Number(location.longitude));
 
   if (!hasValidCoordinates || !Number.isFinite(distanceMeters)) {
+    if (hasValidCoordinates && !hasConfiguredLabLocation) {
+      return { icon: 'navigate-outline', label: 'Lokasi perangkat tersedia', color: '#2563EB' };
+    }
     return { icon: 'navigate-outline', label: 'Lokasi belum diperiksa', color: '#71717A' };
   }
   const effectiveRadius = Number(radiusMeters) || 0;
@@ -31,6 +41,7 @@ export default function RadiusStatusCard({
   radiusMeters,
   isLoading,
   error,
+  hasConfiguredLabLocation,
   onRefresh,
 }) {
   const { tema } = useApp();
@@ -40,6 +51,7 @@ export default function RadiusStatusCard({
     location,
     distanceMeters,
     radiusMeters,
+    hasConfiguredLabLocation,
   });
 
   return (
@@ -60,6 +72,12 @@ export default function RadiusStatusCard({
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+      {!error && location && !hasConfiguredLabLocation ? (
+        <Text style={styles.configurationText}>
+          Lokasi perangkat berhasil diperoleh, tetapi sesi belum terhubung ke lokasi laboratorium.
+        </Text>
+      ) : null}
+
       {location && Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)) ? (
         <View style={[styles.details, { backgroundColor: tema.surfaceRaised }]}>
           <Text style={[styles.detailText, { color: tema.textSecondary }]}>
@@ -69,7 +87,9 @@ export default function RadiusStatusCard({
             Akurasi: ±{Math.round(location.accuracyMeters || 0)} m
           </Text>
           <Text style={[styles.detailText, { color: tema.textSecondary }]}>
-            Jarak: {Number.isFinite(distanceMeters) ? `${Math.round(distanceMeters)} m` : '-'} / radius {Number(radiusMeters) || 0} m
+            {hasConfiguredLabLocation
+              ? `Jarak: ${Number.isFinite(distanceMeters) ? `${Math.round(distanceMeters)} m` : '-'} / radius ${Number(radiusMeters) || 0} m`
+              : 'Jarak ke laboratorium belum dapat dihitung.'}
           </Text>
         </View>
       ) : null}
@@ -96,6 +116,7 @@ const styles = StyleSheet.create({
   details: { borderRadius: 10, padding: 12, gap: 4 },
   detailText: { fontSize: 12, lineHeight: 17 },
   errorText: { color: '#DC2626', fontSize: 12, lineHeight: 18 },
+  configurationText: { color: '#B45309', fontSize: 12, lineHeight: 18 },
   refreshButton: { minHeight: 44, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   refreshText: { fontSize: 13, fontWeight: '700' },
 });
