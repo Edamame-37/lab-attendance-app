@@ -8,6 +8,49 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+const getSessionName = (session) =>
+  session?.namaPraktikum ||
+  session?.topikMateri ||
+  session?.name ||
+  session?.courseName ||
+  session?.subject ||
+  'Sesi Laboratorium';
+
+const getSessionTime = (session) => {
+  if (!session) return '-';
+  const start = session.jamMulai || session.startTime || session.start || '';
+  const end = session.jamSelesai || session.endTime || session.end || '';
+  if (start && end) return `${start} - ${end}`;
+  return start || end || 'Waktu belum ditentukan';
+};
+
+const getSessionStatus = (session) => {
+  if (!session) return 'Tidak tersedia';
+  const status = session.statusSesi || session.status || 'Terjadwal';
+  if (status === 'open' || status === 'DIBUKA') return 'Sedang Berlangsung';
+  if (status === 'closed' || status === 'DITUTUP') return 'Sesi Ditutup';
+  if (status === 'SELESAI') return 'Selesai';
+  return status.toString().replace(/_/g, ' ');
+};
+
+const SessionCard = ({ session, title, icon }) => (
+  <View style={styles.sessionCard}>
+    <View style={styles.sessionHeader}>
+      <Ionicons name={icon} size={19} color="#2F625B" />
+      <Text style={styles.sessionTitle}>{title}</Text>
+    </View>
+    {session ? (
+      <>
+        <Text style={styles.sessionName}>{getSessionName(session)}</Text>
+        <Text style={styles.sessionDetail}><Ionicons name="time-outline" size={14} /> {getSessionTime(session)}</Text>
+        <View style={styles.statusBadge}><Text style={styles.statusText}>{getSessionStatus(session)}</Text></View>
+      </>
+    ) : (
+      <Text style={styles.emptyText}>Belum ada jadwal sesi.</Text>
+    )}
+  </View>
+);
+
 // Menampilkan sesi aktif dan jadwal berikutnya dari laboratorium terpilih.
 const LabActivitySheet = ({
   lab,
@@ -16,68 +59,6 @@ const LabActivitySheet = ({
   onClose,
 }) => {
   if (!lab) return null;
-
-  const getSessionName = (session) =>
-    session?.namaPraktikum ||
-    session?.topikMateri ||
-    session?.name ||
-    session?.courseName ||
-    session?.subject ||
-    'Sesi Laboratorium';
-
-  const getSessionTime = (session) => {
-    if (!session) return '-';
-
-    const start = session.jamMulai || session.startTime || session.start || '';
-    const end = session.jamSelesai || session.endTime || session.end || '';
-
-    if (start && end) return `${start} - ${end}`;
-    return start || end || 'Waktu belum ditentukan';
-  };
-
-  const getSessionStatus = (session) => {
-    if (!session) return 'Tidak tersedia';
-
-    const status = session.statusSesi || session.status || 'Terjadwal';
-
-    if (status === 'open' || status === 'DIBUKA') return 'Sedang Berlangsung';
-    if (status === 'closed' || status === 'DITUTUP') return 'Sesi Ditutup';
-    if (status === 'SELESAI') return 'Selesai';
-
-    return status.toString().replace(/_/g, ' ');
-  };
-
-  const SessionCard = ({ session, title, icon }) => (
-    <View style={styles.sessionCard}>
-      <View style={styles.sessionHeader}>
-        <Ionicons name={icon} size={19} color="#2F625B" />
-        <Text style={styles.sessionTitle}>{title}</Text>
-      </View>
-
-      {session ? (
-        <>
-          <Text style={styles.sessionName}>
-            {getSessionName(session)}
-          </Text>
-
-          <Text style={styles.sessionDetail}>
-            <Ionicons name="time-outline" size={14} />{' '}
-            {getSessionTime(session)}
-          </Text>
-
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>
-              {getSessionStatus(session)}
-            </Text>
-          </View>
-        </>
-      ) : (
-        <Text style={styles.emptyText}>
-          Belum ada jadwal sesi.
-        </Text>
-      )}
-    </View>
-  );
 
   return (
     <View style={styles.container}>

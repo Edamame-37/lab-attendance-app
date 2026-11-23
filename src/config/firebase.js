@@ -59,7 +59,7 @@ try {
       persistence: getReactNativePersistence(ReactNativeAsyncStorage),
     });
   }
-} catch (error) {
+} catch (_error) {
   // Jika instance auth sudah terinisialisasi sebelumnya (misal saat Hot Reload), ambil instance yang ada
   auth = getAuth(app);
 }
