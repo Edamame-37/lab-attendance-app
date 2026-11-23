@@ -15,7 +15,8 @@ export interface UserProfile {
   nomorInduk: string;
   email: string;
   role: PeranPengguna;
-  roles?: PeranPengguna[];
+  roles: PeranPengguna[];
+  accountStatus: 'active' | 'suspended';
   kelas?: string | null;
   createdAt?: any;
   updatedAt?: any;
@@ -28,6 +29,7 @@ export interface AuthContextType {
   activeRole: PeranPengguna | null;
   availableRoles: PeranPengguna[];
   setActiveRole: (role: PeranPengguna) => Promise<void>;
+  authStatus: 'initializing' | 'authenticated' | 'unauthenticated';
   isLoading: boolean;
   isAuthenticated: boolean;
   authError: string | null;

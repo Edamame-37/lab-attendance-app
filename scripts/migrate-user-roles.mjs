@@ -45,10 +45,11 @@ for (const userDocument of usersSnapshot.docs) {
   }
 
   const canonicalRole = roles.includes(profile.role) ? profile.role : roles[0];
+  const accountStatus = profile.accountStatus === 'suspended' ? 'suspended' : 'active';
   const rolesChanged = JSON.stringify(profile.roles || []) !== JSON.stringify(roles);
-  if (rolesChanged || profile.role !== canonicalRole) {
-    migrations.push({ reference: userDocument.ref, role: canonicalRole, roles });
-    console.log(`[${applyChanges ? 'APPLY' : 'DRY-RUN'}] ${userDocument.id}: role=${canonicalRole}, roles=${roles.join(',')}`);
+  if (rolesChanged || profile.role !== canonicalRole || profile.accountStatus !== accountStatus) {
+    migrations.push({ reference: userDocument.ref, role: canonicalRole, roles, accountStatus });
+    console.log(`[${applyChanges ? 'APPLY' : 'DRY-RUN'}] ${userDocument.id}: role=${canonicalRole}, roles=${roles.join(',')}, accountStatus=${accountStatus}`);
   }
 }
 
@@ -59,6 +60,7 @@ if (applyChanges && migrations.length > 0) {
       batch.update(migration.reference, {
         role: migration.role,
         roles: migration.roles,
+        accountStatus: migration.accountStatus,
         updatedAt: FieldValue.serverTimestamp(),
       });
     }
