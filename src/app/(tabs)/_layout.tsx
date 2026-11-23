@@ -57,32 +57,34 @@ export default function TabLayout(): React.JSX.Element {
         }}
       />
 
-      {/* Tab 2: Presensi dengan Red Dot Badge 7px persis trydesign.html */}
-      <Tabs.Screen
-        name="presensi"
-        options={{
-          title: 'Presensi',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'checkbox' : 'checkbox-outline'} size={20} color={color as string} />
-          ),
-        }}
-      />
+      <Tabs.Protected guard={role === 'praktikan'}>
+        <Tabs.Screen
+          name="presensi"
+          options={{
+            title: 'Presensi',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'checkbox' : 'checkbox-outline'} size={20} color={color as string} />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
       {/* Tab 3: Rekapitulasi */}
-      <Tabs.Screen
-        name="rekap"
-        options={{
-          title: 'Rekap',
-          href: role === 'asisten' ? '/rekap' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'stats-chart' : 'stats-chart-outline'}
-              size={20}
-              color={color as string}
-            />
-          ),
-        }}
-      />
+      <Tabs.Protected guard={role === 'asisten'}>
+        <Tabs.Screen
+          name="rekap"
+          options={{
+            title: 'Rekap',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? 'stats-chart' : 'stats-chart-outline'}
+                size={20}
+                color={color as string}
+              />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
       {/* Tab 4: Profil */}
       <Tabs.Screen

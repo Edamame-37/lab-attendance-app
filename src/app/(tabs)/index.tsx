@@ -45,7 +45,9 @@ function Shortcut({ label, icon, onPress, primary = false, theme }: ShortcutProp
       accessibilityLabel={label}
     >
       <Ionicons name={icon} size={21} color={primary ? '#FFFFFF' : theme.accent} />
-      <Text style={[styles.shortcutText, { color: primary ? '#FFFFFF' : theme.textPrimary }]}>{label}</Text>
+      <Text style={[styles.shortcutText, { color: primary ? '#FFFFFF' : theme.textPrimary }]}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -58,20 +60,17 @@ export default function DashboardScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const unsubscribe = subscribeToSessions(
-      (items: SessionDocument[]) => {
-        setSessions(items);
-        setLoading(false);
-        setError('');
-      },
-      (subscriptionError: Error) => {
-        setError(subscriptionError.message || 'Sesi praktikum tidak dapat dimuat.');
-        setLoading(false);
-      }
-    );
-    return unsubscribe;
-  }, []);
+  useEffect(() => subscribeToSessions(
+    (items: SessionDocument[]) => {
+      setSessions(items);
+      setLoading(false);
+      setError('');
+    },
+    (subscriptionError: Error) => {
+      setError(subscriptionError.message || 'Sesi praktikum tidak dapat dimuat.');
+      setLoading(false);
+    },
+  ), []);
 
   const sortedSessions = useMemo(
     () => [...sessions].sort((first, second) => {
@@ -79,7 +78,7 @@ export default function DashboardScreen(): React.JSX.Element {
       const secondOpen = second.status === 'open' || second.statusSesi === 'DIBUKA';
       return Number(secondOpen) - Number(firstOpen);
     }),
-    [sessions]
+    [sessions],
   );
 
   const openAttendance = (sessionId?: string): void => {
@@ -88,452 +87,74 @@ export default function DashboardScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer>
-      {/* PINTASAN MODUL (TERINTEGRASI SESUAI PERAN AKTIF) */}
-      <View
-        style={{
-          backgroundColor: tema.surface,
-          borderColor: tema.border,
-          borderWidth: 1,
-          borderRadius: 14,
-          padding: 12,
-          marginBottom: 14,
-          gap: 8,
-        }}
-      >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-            Pintasan Menu {peranAktif === 'asisten' ? 'Asisten' : 'Praktikan'}
-          </Text>
-          <Text style={{ fontSize: 10, color: tema.textMuted }}>
-            {peranAktif === 'asisten' ? 'Modul Kelola & Validasi' : 'Modul Kehadiran & Perizinan'}
-          </Text>
-        </View>
+      <View>
+        <Text style={[styles.title, { color: tema.textPrimary }]}>Dashboard Praktikum</Text>
+        <Text style={[styles.subtitle, { color: tema.textSecondary }]}>
+          Menu dan data ditampilkan sesuai role aktif akun.
+        </Text>
+      </View>
 
-        {peranAktif === 'asisten' ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/sesi' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: tema.accent,
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-                Kelola Sesi
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/lokasi-lab' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: tema.surfaceRaised,
-                borderColor: tema.border,
-                borderWidth: 1,
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="settings-outline" size={16} color={tema.textPrimary} />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-                Kelola Lab
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/peta-lab' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: '#2563EB',
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="map-outline" size={16} color="#FFFFFF" />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-                Peta Lab
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/review-izin' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: tema.surfaceRaised,
-                borderColor: tema.border,
-                borderWidth: 1,
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="document-text-outline" size={16} color={tema.textPrimary} />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-                Review Izin
-              </Text>
-            </TouchableOpacity>
-          </View>
+      <View style={styles.shortcutGrid}>
+        {role === 'asisten' ? (
+          <>
+            <Shortcut theme={tema} label="Kelola Sesi" icon="calendar-outline" onPress={() => router.push('/sesi')} primary />
+            <Shortcut theme={tema} label="Kelola Lab" icon="business-outline" onPress={() => router.push('/lokasi-lab')} />
+            <Shortcut theme={tema} label="Review Izin" icon="document-text-outline" onPress={() => router.push('/review-izin')} />
+            <Shortcut theme={tema} label="Peta Lab" icon="map-outline" onPress={() => router.push('/peta-lab')} />
+          </>
         ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/presensi-lokasi' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: tema.accent,
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="locate-outline" size={16} color="#FFFFFF" />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-                Presensi Praktikum
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/peta-lab' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: '#2563EB',
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="map-outline" size={16} color="#FFFFFF" />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-                Peta Lab
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/pengajuan-izin' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: tema.surfaceRaised,
-                borderColor: tema.border,
-                borderWidth: 1,
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="mail-outline" size={16} color={tema.textPrimary} />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-                Pengajuan Izin
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/status-izin' as any)}
-              style={{
-                flex: 1,
-                minWidth: '47%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: tema.surfaceRaised,
-                borderColor: tema.border,
-                borderWidth: 1,
-                paddingVertical: 10,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="time-outline" size={16} color={tema.textPrimary} />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: tema.textPrimary }}>
-                Status Izin
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <>
+            <Shortcut theme={tema} label="Presensi Lokasi" icon="locate-outline" onPress={() => openAttendance()} primary />
+            <Shortcut theme={tema} label="Ajukan Izin" icon="document-text-outline" onPress={() => router.push('/pengajuan-izin')} />
+            <Shortcut theme={tema} label="Status Izin" icon="time-outline" onPress={() => router.push('/status-izin')} />
+            <Shortcut theme={tema} label="Peta Lab" icon="map-outline" onPress={() => router.push('/peta-lab')} />
+          </>
         )}
       </View>
 
-      {/* SECTION 1: SESI SEDANG BERLANGSUNG */}
-      {sesiUtama && (
-        <View style={styles.sectionWrap}>
-          <SectionHeader
-            title={
-              sesiUtama.status === 'DIBUKA'
-                ? 'Sesi Sedang Berlangsung'
-                : 'Sesi Praktikum Terdekat'
-            }
-            isFirst
-            rightElement={
-              <Text style={[styles.sectionDateMeta, { color: tema.textMuted }]}>
-                {sesiUtama.hari}, 26 Okt
-              </Text>
-            }
-          />
+      <Text style={[styles.sectionTitle, { color: tema.textPrimary }]}>Sesi Praktikum</Text>
+      {loading ? <ActivityIndicator color={tema.accent} style={styles.loading} /> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!loading && !error && sortedSessions.length === 0 ? (
+        <View style={[styles.emptyCard, { backgroundColor: tema.surface, borderColor: tema.border }]}>
+          <Ionicons name="calendar-outline" size={28} color={tema.textMuted} />
+          <Text style={[styles.emptyTitle, { color: tema.textPrimary }]}>Belum ada sesi</Text>
+          <Text style={[styles.emptyText, { color: tema.textSecondary }]}>
+            Asisten perlu membuat laboratorium, lalu membuat sesi yang terhubung ke laboratorium tersebut.
+          </Text>
+        </View>
+      ) : null}
 
-          {/* ACTIVE SESSION CARD (HERO) */}
-          <View
-            style={[
-              styles.heroCard,
-              {
-                backgroundColor: tema.surface,
-                borderColor: tema.border,
-              },
-              modeTema === 'dark' && sesiUtama.status === 'DIBUKA'
-                ? { borderLeftWidth: 3, borderLeftColor: tema.accent }
-                : null,
-            ]}
+      {sortedSessions.map((session) => {
+        const isOpen = session.status === 'open' || session.statusSesi === 'DIBUKA';
+        const hasLab = Boolean(session.labId);
+        const canOpenAttendance = role === 'praktikan' && isOpen;
+
+        return (
+          <TouchableOpacity
+            key={session.id}
+            style={[styles.sessionCard, { backgroundColor: tema.surface, borderColor: isOpen ? tema.accent : tema.border }]}
+            onPress={() => canOpenAttendance && openAttendance(session.id)}
+            disabled={!canOpenAttendance}
+            accessibilityRole={canOpenAttendance ? 'button' : 'summary'}
+            accessibilityState={{ disabled: !canOpenAttendance }}
           >
-            {/* Blok 1: Judul Utama & Sub-line */}
-            <View style={styles.cardHeadingBlock}>
-              <Text
-                style={[styles.cardTitle, { color: tema.textPrimary }]}
-                numberOfLines={2}
-              >
-                {sesiUtama.namaPraktikum}
-              </Text>
-              <View style={styles.cardSubline}>
-                <Text
-                  style={[styles.sublineText, { color: tema.textSecondary }]}
-                >
-                  Kelas {sesiUtama.kelas}
-                </Text>
-                <Text style={[styles.sublineSep, { color: tema.border }]}>·</Text>
-                <Text
-                  style={[styles.sublineText, { color: tema.textSecondary }]}
-                >
-                  {sesiUtama.ruangLab}
-                </Text>
+            <View style={styles.sessionHeader}>
+              <View style={styles.sessionTitleBlock}>
+                <Text style={[styles.sessionName, { color: tema.textPrimary }]}>{session.namaPraktikum || 'Praktikum'}</Text>
+                <Text style={[styles.sessionTopic, { color: tema.textSecondary }]}>{session.topikMateri || 'Materi belum diisi'}</Text>
               </View>
+              <Text style={[styles.status, { color: isOpen ? '#059669' : tema.textMuted }]}>{isOpen ? 'DIBUKA' : 'DITUTUP'}</Text>
             </View>
-
-            {/* Blok 2: Waktu & Asisten Bersih (De-boxed) */}
-            <View style={styles.cardMetaRow}>
-              <View style={styles.timeSlot}>
-                <Ionicons
-                  name="time-outline"
-                  size={14}
-                  color={tema.textMuted}
-                />
-                <Text
-                  style={[styles.timeText, { color: tema.textPrimary }]}
-                >
-                  {sesiUtama.jamMulai} – {sesiUtama.jamSelesai} WIB
-                </Text>
-              </View>
-
-              <Text
-                style={[styles.assistantName, { color: tema.textSecondary }]}
-              >
-                {sesiUtama.namaAsisten}
-              </Text>
-            </View>
-
-            {/* Blok 3: Tombol Aksi / Bukti Kehadiran Langsung */}
-            <View style={styles.actionCluster}>
-              {peranAktif === 'asisten' ? (
-                sesiUtama.status === 'DIBUKA' ? (
-                  <TouchableOpacity
-                    style={[styles.uiActionBtn, styles.btnDangerUi]}
-                    onPress={() => handleTutupSesiTrigger(sesiUtama)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="pause-circle-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.btnActionText}>Tutup Sesi Praktikum</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.uiActionBtn, styles.btnSuccessUi]}
-                    onPress={() => handleBukaSesiTrigger(sesiUtama)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="play-circle-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.btnActionText}>Buka Sesi Praktikum</Text>
-                  </TouchableOpacity>
-                )
-              ) : presensiSaya ? (
-                /* Bukti Presensi (Receipt Box) */
-                <View
-                  style={[
-                    styles.uiReceiptBox,
-                    {
-                      backgroundColor: tema.statusHadirBg,
-                      borderColor: tema.statusHadirBorder,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="checkmark-outline"
-                    size={16}
-                    color={tema.statusHadir}
-                  />
-                  <Text
-                    style={[
-                      styles.receiptText,
-                      { color: tema.statusHadir },
-                    ]}
-                  >
-                    Presensi kamu telah tercatat pada {presensiSaya.waktuPresensi} WIB
-                  </Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.uiActionBtn,
-                    { backgroundColor: tema.accent },
-                  ]}
-                  onPress={() => router.push('/(tabs)/presensi')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="checkbox-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.btnActionText}>Isi Presensi Sekarang</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* SECTION 2: JADWAL MENDATANG */}
-      <View style={styles.sectionWrap}>
-        <SectionHeader title="Jadwal Mendatang" />
-        {sesiMendatang.length === 0 ? (
-          <EmptyState
-            title="Tidak Ada Jadwal Mendatang"
-            description="Semua jadwal sesi praktikum telah dibuka atau diselesaikan."
-          />
-        ) : (
-          <GroupedInsetList>
-            {sesiMendatang.map((sesi, index) => (
-              <GroupedInsetItem
-                key={sesi.id}
-                title={sesi.topikMateri}
-                subtitle={`${sesi.jamMulai} – ${sesi.jamSelesai} WIB · ${sesi.ruangLab} · ${sesi.namaAsisten}`}
-                isLast={index === sesiMendatang.length - 1}
-                rightElement={
-                  <View
-                    style={[
-                      styles.classTag,
-                      { backgroundColor: tema.surfaceRaised },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.classTagText, { color: tema.textMuted }]}
-                    >
-                      {sesi.kelas}
-                    </Text>
-                  </View>
-                }
-                onPress={
-                  peranAktif === 'asisten'
-                    ? () => handleBukaSesiTrigger(sesi)
-                    : undefined
-                }
-              />
-            ))}
-          </GroupedInsetList>
-        )}
-      </View>
-
-      {/* SECTION 3: SELESAI DILAKSANAKAN */}
-      <View style={styles.sectionWrap}>
-        <SectionHeader title="Selesai Dilaksanakan" />
-        {sesiSelesai.length === 0 ? (
-          <EmptyState
-            title="Belum Ada Sesi Selesai"
-            description="Sesi yang telah ditutup dan diverifikasi akan muncul pada riwayat ini."
-          />
-        ) : (
-          <GroupedInsetList style={{ opacity: 0.85 }}>
-            {sesiSelesai.map((sesi, index) => {
-              const jmlHadir = ambilPresensiPerSesi(sesi.id).length;
-              return (
-                <GroupedInsetItem
-                  key={sesi.id}
-                  title={sesi.topikMateri}
-                  subtitle={`Jumat, 18 Okt · ${sesi.ruangLab} · ${jmlHadir || 5}/5 Hadir`}
-                  isLast={index === sesiSelesai.length - 1}
-                  rightElement={
-                    <View
-                      style={[
-                        styles.classTag,
-                        { backgroundColor: tema.surfaceRaised },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.classTagText, { color: tema.textMuted }]}
-                      >
-                        {sesi.kelas}
-                      </Text>
-                    </View>
-                  }
-                />
-              );
-            })}
-          </GroupedInsetList>
-        )}
-      </View>
-
-      {/* Dialog Modal: Pembukaan Sesi (Asisten) */}
-      <OpenSessionModal
-        visible={modalBukaVisible}
-        sesi={selectedSesi}
-        onClose={() => {
-          setModalBukaVisible(false);
-          setSelectedSesi(null);
-        }}
-        onConfirm={handleKonfirmasiBuka}
-      />
-
-      {/* Dialog Modal: Penutupan Sesi (Asisten) */}
-      <CloseSessionModal
-        visible={modalTutupVisible}
-        sesi={selectedSesi}
-        totalHadir={selectedSesi ? ambilPresensiPerSesi(selectedSesi.id).length : 0}
-        onClose={() => {
-          setModalTutupVisible(false);
-          setSelectedSesi(null);
-        }}
-        onConfirm={handleKonfirmasiTutup}
-      />
+            <Text style={[styles.meta, { color: tema.textSecondary }]}>
+              {session.kelas || '-'} · {session.hari || '-'} · {session.jamMulai || '-'}–{session.jamSelesai || '-'}
+            </Text>
+            <Text style={[styles.meta, { color: hasLab ? tema.textSecondary : '#DC2626' }]}>
+              {hasLab ? session.ruangLab || 'Laboratorium terhubung' : 'Laboratorium belum dikonfigurasi'}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </ScreenContainer>
   );
 }
