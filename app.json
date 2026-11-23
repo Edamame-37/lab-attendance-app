@@ -26,13 +26,20 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "output": "single"
+      "output": "static"
     },
     "scheme": "ppk-mobile",
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-status-bar",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "praktikum",
+          "color": "#047857"
+        }
+      ],
       [
         "react-native-maps",
         {

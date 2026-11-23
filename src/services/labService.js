@@ -8,6 +8,8 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  query,
+  where,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { validateCoordinates } from './locationService';
@@ -101,6 +103,19 @@ export const updateLab = async (labId, labInput, userId) => {
 
 export const setLabActiveState = async (labId, isActive, userId) => {
   if (!labId) throw new Error('ID laboratorium wajib diisi.');
+
+  if (!isActive) {
+    const activeSessionQuery = query(
+      collection(db, 'sessions'),
+      where('labId', '==', labId),
+      where('status', '==', 'open')
+    );
+    const activeSessions = await getDocs(activeSessionQuery);
+    if (!activeSessions.empty) {
+      throw new Error('Laboratorium tidak dapat dinonaktifkan karena masih digunakan oleh sesi yang sedang dibuka.');
+    }
+  }
+
   await updateDoc(doc(db, LABS_COLLECTION, labId), {
     isActive,
     updatedAt: serverTimestamp(),

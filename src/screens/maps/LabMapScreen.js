@@ -27,7 +27,7 @@ if (Platform.OS !== 'web') {
     const Maps = require('react-native-maps');
     MapView = Maps.default || Maps;
     Marker = Maps.Marker;
-  } catch (e) {
+  } catch (_error) {
     console.log('react-native-maps not available, using custom map view');
   }
 }
@@ -129,7 +129,7 @@ export default function LabMapScreen() {
             latitude: Number(lab.latitude),
             longitude: Number(lab.longitude),
           });
-        } catch (e) {}
+        } catch (_error) {}
       }
       return { ...lab, distanceMeters: distance };
     });

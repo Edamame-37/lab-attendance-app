@@ -74,33 +74,9 @@ export interface CatatanPresensi {
  * Interface konteks state global aplikasi
  */
 export interface AppContextType {
-  // Pengguna & Peran
   peranAktif: PeranPengguna;
   penggunaAktif: Pengguna;
-  daftarAsisten: Pengguna[];
-  daftarPraktikan: Pengguna[];
   gantiPeran: (peran: PeranPengguna) => void;
-  gantiPengguna: (penggunaId: string) => void;
-
-  // Jadwal & Pengelolaan Sesi (Programmer 1)
-  daftarSesi: JadwalSesi[];
-  bukaSesi: (sesiId: string, ruangLab?: string) => void;
-  tutupSesi: (sesiId: string) => void;
-
-  // Presensi Praktikan (Programmer 2)
-  daftarPresensi: CatatanPresensi[];
-  catatPresensi: (
-    sesiId: string,
-    statusKehadiran: StatusKehadiran,
-    catatan?: string
-  ) => { sukses: boolean; pesan: string };
-  cekSudahPresensi: (sesiId: string, praktikanId: string) => boolean;
-  ambilRiwayatPraktikan: (praktikanId: string) => CatatanPresensi[];
-
-  // Rekapitulasi Asisten (Programmer 3)
-  ambilPresensiPerSesi: (sesiId: string) => CatatanPresensi[];
-
-  // Sistem Tema Tampilan (Light Mode Opsi 3 & Dark Mode Opsi 2)
   modeTema: ModeTema;
   tema: ThemeColors;
   toggleModeTema: () => void;

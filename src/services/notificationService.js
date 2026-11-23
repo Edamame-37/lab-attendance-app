@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Mengatur tampilan notifikasi ketika aplikasi sedang terbuka.
 Notifications.setNotificationHandler({
@@ -21,6 +23,16 @@ export const registerForPushNotifications = async () => {
         message: 'Push notification memerlukan perangkat fisik.',
         token: null,
       };
+    }
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('praktikum', {
+        name: 'Praktikum',
+        description: 'Pembukaan sesi, perubahan jadwal, dan keputusan izin.',
+        importance: AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#047857',
+      });
     }
 
     let permission = await Notifications.getPermissionsAsync();
@@ -59,7 +71,7 @@ export const registerForPushNotifications = async () => {
       message: 'Push token berhasil diperoleh.',
       token: response.data,
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       success: false,
       message: 'Gagal mendaftarkan push notification.',
@@ -86,7 +98,7 @@ export const sendLocalNotification = async ({
     });
 
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };
