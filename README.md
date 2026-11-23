@@ -1,144 +1,40 @@
-# Presensi Praktikum Mobile - React Native
+# Presensi Praktikum Mobile
 
-Aplikasi presensi laboratorium untuk Praktikum Pengembangan Perangkat Bergerak (PPK) berbasis React Native menggunakan Expo SDK 58, TypeScript, Expo Router, dan Firebase.
+Aplikasi presensi laboratorium berbasis React Native dan Expo SDK 58. Sistem mengintegrasikan autentikasi Firebase, pengelolaan laboratorium dan sesi praktikum, presensi berbasis lokasi, rekap real-time, pengajuan izin, serta analisis sentimen lokal EDOM.
 
-Dokumentasi analisis kebutuhan dan pembagian tugas paralel untuk 3 pemrogram tercantum pada berkas [PRAKMOBILE1.md](./PRAKMOBILE1.md).
+## Daftar Isi
 
----
+- [Ringkasan](#ringkasan)
+- [Peran Pengguna](#peran-pengguna)
+- [Fitur per Sprint](#fitur-per-sprint)
+- [Arsitektur dan Alur Utama](#arsitektur-dan-alur-utama)
+- [Teknologi](#teknologi)
+- [Struktur Proyek](#struktur-proyek)
+- [Konfigurasi Environment](#konfigurasi-environment)
+- [Menjalankan Proyek](#menjalankan-proyek)
+- [Validasi](#validasi)
+- [Firebase dan EAS](#firebase-dan-eas)
+- [Batasan Implementasi](#batasan-implementasi)
+- [Dokumentasi Proyek](#dokumentasi-proyek)
 
-## 1. Ringkasan Aplikasi
+## Ringkasan
 
-Aplikasi dikembangkan secara bertahap melalui dua sprint:
+Aplikasi dikembangkan dalam tiga sprint:
 
-- **Sprint 1:** Implementasi fitur dasar presensi praktikum.
-- **Sprint 2:** Pengembangan autentikasi, penyimpanan data berbasis Firebase, pengajuan izin, dan integrasi klasifikasi sentimen AI EDOM.
+1. **Sprint 1 — Antarmuka dan alur dasar:** navigasi utama, jadwal sesi, presensi, rekap, profil, dan sistem tema.
+2. **Sprint 2 — Firebase dan AI:** autentikasi, sinkronisasi Firestore, pengajuan izin, review asisten, dan klasifikasi sentimen EDOM.
+3. **Sprint 3 — Lokasi dan perangkat:** presensi berbasis radius, pengelolaan lokasi laboratorium, peta interaktif, permission perangkat, dan fondasi notifikasi.
 
-Aplikasi memiliki dua peran utama, yaitu **Asisten Praktikum** dan **Praktikan**, dengan hak akses dan fitur yang disesuaikan berdasarkan perannya.
+Data produksi aplikasi menggunakan Firebase Authentication dan Cloud Firestore. Identitas pengguna berasal dari dokumen `users/{uid}`, sedangkan role aktif hanya dapat dipilih dari role yang telah diberikan kepada akun tersebut.
 
-### 1.1 Modul Sprint 1
+## Peran Pengguna
 
-Aplikasi menyediakan empat tab navigasi utama:
-
-| Tab Navigasi | Berkas Sumber | Penanggung Jawab | Deskripsi Fungsional |
-|---|---|---|---|
-| Jadwal Sesi | `src/app/(tabs)/index.tsx` | Pemrogram 1 | Pemantauan jadwal dan siklus sesi praktikum, termasuk pembukaan dan penutupan sesi oleh Asisten. |
-| Presensi | `src/app/(tabs)/presensi.tsx` | Pemrogram 2 | Pencatatan kehadiran mahasiswa dengan validasi anti-duplikasi dan riwayat presensi pribadi. |
-| Rekapitulasi | `src/app/(tabs)/rekap.tsx` | Pemrogram 3 | Rekapitulasi kehadiran praktikan per sesi, catatan waktu presensi, dan statistik kehadiran. |
-| Profil | `src/app/(tabs)/profil.tsx` | Pemrogram 3 | Informasi identitas pengguna, pengalih peran, dan ringkasan aplikasi. |
-
-### 1.2 Pengembangan Sprint 2
-
-Sprint 2 berfokus pada pengembangan autentikasi, pengelolaan pengajuan izin, serta penerapan AI untuk membantu analisis sentimen.
-
-| Kode SRS | Fitur | Deskripsi |
-|---|---|---|
-| FT-01 | Autentikasi Pengguna | Pengguna melakukan autentikasi menggunakan Firebase Authentication. |
-| FT-05 | Pengajuan Izin Praktikan | Praktikan dapat mengirim pengajuan izin yang disimpan pada Cloud Firestore. |
-| FT-06 | Analisis Sentimen AI EDOM | Sistem menganalisis teks alasan izin menggunakan model klasifikasi sentimen lokal. |
-| FT-07 | Pemeriksaan Status Izin | Asisten dapat menyetujui atau menolak pengajuan, sedangkan Praktikan dapat melihat status pengajuannya. |
-| FT-08 | Pengamanan Hak Akses | Akses fitur disesuaikan dengan peran pengguna dan dilindungi melalui aturan keamanan Firebase. |
-
-### 1.3 Alur Pengajuan Izin
-
-1. Praktikan masuk ke aplikasi menggunakan akun yang telah terautentikasi.
-2. Praktikan mengisi formulir pengajuan izin dengan memilih sesi praktikum dan menuliskan alasan izin.
-3. Sistem melakukan analisis sentimen terhadap teks alasan menggunakan AI EDOM.
-4. Data pengajuan beserta hasil analisis AI disimpan ke Cloud Firestore dengan status awal `pending`.
-5. Asisten melihat daftar pengajuan izin yang masuk.
-6. Asisten memeriksa alasan dan hasil analisis sentimen sebagai informasi pendukung.
-7. Asisten memberikan keputusan berupa `approved` atau `rejected`.
-8. Status dan informasi keputusan tersimpan di Firestore dan dapat dipantau oleh Praktikan.
-
-### 1.4 Teknologi yang Digunakan
-
-| Teknologi | Kegunaan |
+| Peran | Akses Utama |
 |---|---|
-| React Native | Pengembangan antarmuka aplikasi mobile. |
-| Expo | Lingkungan pengembangan dan pengujian aplikasi. |
-| TypeScript / JavaScript | Bahasa pemrograman aplikasi. |
-| Expo Router | Pengelolaan navigasi aplikasi. |
-| Firebase Authentication | Autentikasi pengguna. |
-| Cloud Firestore | Penyimpanan data pengajuan izin dan informasi terkait. |
-| Firebase Security Rules | Pengaturan hak akses terhadap data Firebase. |
-| JavaScript | Implementasi pemrosesan model AI lokal. |
-| EAS Build | Proses build aplikasi Android dan iOS. |
-| EAS Update | Distribusi pembaruan aplikasi secara nirkabel. |
+| Praktikan | Melihat sesi, melakukan presensi berbasis lokasi, mengajukan izin, melihat status izin, dan membuka peta laboratorium. |
+| Asisten | Mengelola laboratorium dan sesi, membuka atau menutup sesi, melihat rekap kehadiran, serta memproses pengajuan izin. |
 
----
-
-## 2. Integrasi Firebase
-
-Firebase digunakan untuk mendukung autentikasi dan penyimpanan data aplikasi.
-
-### 2.1 Firebase Authentication
-
-Firebase Authentication digunakan untuk mengelola proses autentikasi pengguna. Informasi autentikasi pengguna digunakan untuk mengidentifikasi akun yang sedang aktif.
-
-Akses aplikasi dibedakan berdasarkan peran:
-
-- **Praktikan:** Mengakses fitur presensi, pengajuan izin, dan pemantauan status pengajuan.
-- **Asisten:** Mengakses fitur pengelolaan sesi, rekapitulasi, serta pemeriksaan pengajuan izin.
-
-### 2.2 Cloud Firestore
-
-Cloud Firestore digunakan untuk menyimpan data pengajuan izin pada koleksi:
-
-`leave_requests`
-
-Status pengajuan izin:
-
-- `pending`: Menunggu pemeriksaan Asisten.
-- `approved`: Pengajuan disetujui.
-- `rejected`: Pengajuan ditolak.
-
-Keputusan Asisten diproses menggunakan Firestore Transaction untuk memastikan pengajuan yang sudah diputuskan tidak diproses kembali.
-
-### 2.3 Firebase Security Rules
-
-Aturan keamanan Firestore digunakan untuk membatasi akses data berdasarkan identitas dan peran pengguna.
-
-Secara umum:
-- Praktikan hanya dapat membaca pengajuan miliknya.
-- Praktikan hanya dapat membuat pengajuan dengan identitas akun yang sedang digunakan dan status awal `pending`.
-- Asisten dapat memantau pengajuan dan memberikan keputusan.
-- Perubahan status dan informasi pemeriksaan dibatasi sesuai aturan keamanan yang diterapkan.
-
-Pastikan aturan keamanan yang digunakan sudah dipublikasikan melalui Firebase Console.
-
-Deploy Rules dan composite index dari repository:
-
-```bash
-npx firebase-tools deploy --only firestore:rules,firestore:indexes
-```
-
-### 2.4 Alur Laboratorium, Sesi, dan Presensi
-
-Laboratorium, sesi, dan presensi menggunakan sumber data Firestore yang sama. Asisten tidak dapat membuka sesi tanpa laboratorium aktif yang memiliki koordinat valid. Praktikan hanya dapat melakukan presensi pada sesi terbuka yang menunjuk laboratorium tersebut.
-
-```mermaid
-flowchart LR
-  A[Asisten membuat lab aktif] --> B[Asisten membuat sesi dan memilih lab]
-  B --> C[Asisten membuka sesi]
-  C --> D[Praktikan memilih sesi terbuka]
-  D --> E[Aplikasi membaca lokasi perangkat]
-  E --> F{Akurasi maksimal 50 m dan dalam radius?}
-  F -- Ya --> G[Presensi disimpan ke Firestore]
-  F -- Tidak --> H[Presensi ditolak dengan alasan validasi]
-```
-
-Urutan operasional:
-
-1. Akun asisten membuka **Kelola Lab** dan membuat laboratorium beserta latitude, longitude, dan radius.
-2. Asisten membuka **Kelola Sesi**, membuat sesi, lalu memilih laboratorium aktif.
-3. Asisten membuka sesi. Nama dan lokasi laboratorium selalu diambil dari referensi `labId`, bukan input bebas.
-4. Praktikan membuka satu menu **Presensi Lokasi**, memilih sesi terbuka, lalu memperbarui lokasi.
-5. Sistem memvalidasi role, identitas profil, akurasi GPS, radius, serta duplikasi sebelum menyimpan presensi.
-
-### 2.5 Role dan Identitas Akun
-
-Identitas nama, email, NIM/NIP, dan kelas selalu berasal dari dokumen pengguna Firebase yang sama. Perpindahan mode tidak lagi mengganti identitas menjadi data dummy.
-
-Contoh field role pada dokumen `users/{uid}`:
+Dokumen pengguna mendukung satu atau beberapa role resmi:
 
 ```json
 {
@@ -147,166 +43,180 @@ Contoh field role pada dokumen `users/{uid}`:
 }
 ```
 
-- Akun satu role menggunakan `roles: ["praktikan"]` atau `roles: ["asisten"]`.
-- Tombol ganti mode hanya muncul bila `roles` memuat kedua role.
-- Field `roles` harus diprovisikan oleh administrator tepercaya melalui Firebase Console atau backend administratif. Firestore Rules melarang pengguna menaikkan role miliknya sendiri.
+Field `roles` harus diprovisikan melalui Firebase Console atau backend administratif tepercaya. Pengguna tidak dapat menambahkan role miliknya sendiri melalui aplikasi.
 
-Untuk environment yang sudah memiliki profil lama, gunakan Application Default Credentials atau service account administratif, lalu jalankan migrasi dalam mode dry-run:
+## Fitur per Sprint
 
-```bash
-npm run migrate:user-roles
-npm run migrate:user-roles -- --apply
+Status pada tabel menunjukkan cakupan implementasi fitur, bukan hasil acceptance test production.
+
+### Sprint 1 — Antarmuka dan Alur Dasar
+
+| Modul | Fitur | Peran | Implementasi | Status | Berkas Utama |
+|---|---|---|---|---|---|
+| S1-01 | Dashboard dan jadwal sesi | Praktikan, Asisten | Menampilkan daftar sesi dan pintasan menu sesuai role aktif. | Tersedia | `src/app/(tabs)/index.tsx` |
+| S1-02 | Navigasi tab | Praktikan, Asisten | Navigasi Jadwal, Presensi, Rekap, dan Profil menggunakan Expo Router. | Tersedia | `src/app/(tabs)/_layout.tsx` |
+| S1-03 | Presensi | Praktikan | Menyediakan pintasan menuju alur presensi resmi berbasis lokasi. | Tersedia | `src/app/(tabs)/presensi.tsx` |
+| S1-04 | Rekap kehadiran | Asisten | Memilih sesi dan memantau daftar serta statistik presensi secara real-time. | Tersedia | `src/app/(tabs)/rekap.tsx`, `src/features/rekap/RekapPresensiView.tsx` |
+| S1-05 | Profil dan preferensi | Praktikan, Asisten | Menampilkan identitas Firebase, role yang tersedia, tema, dan aksi logout. | Tersedia | `src/app/(tabs)/profil.tsx` |
+| S1-06 | Design system | Praktikan, Asisten | Tema terang/gelap, container layar, kartu, badge, empty state, dan segmented control. | Tersedia | `src/theme/index.ts`, `src/components/` |
+
+### Sprint 2 — Firebase, Presensi Real-time, dan AI
+
+| Kode SRS | Fitur | Peran | Implementasi | Status | Berkas Utama |
+|---|---|---|---|---|---|
+| FT-01 | Autentikasi pengguna | Praktikan, Asisten | Registrasi praktikan, login, logout, persistence sesi, dan profil Firestore. | Tersedia | `src/services/authService.js`, `src/context/AuthContext.js` |
+| FT-02 | Pengelolaan sesi | Asisten | CRUD sesi, pemilihan laboratorium, serta kontrol buka/tutup sesi. Domain kelas terpisah belum lengkap. | Parsial | `src/app/sesi.tsx`, `src/services/firestoreService.js` |
+| FT-03 | Presensi satu kali | Praktikan | ID dokumen deterministik `${sessionId}_${studentId}` dan validasi duplikasi di client serta Rules. | Tersedia | `src/services/firestoreService.js`, `firestore.rules` |
+| FT-04 | Sinkronisasi real-time | Praktikan, Asisten | Listener Firestore untuk sesi, presensi pengguna, dan rekap sesi. | Tersedia | `src/hooks/useAttendance.js`, `src/services/firestoreService.js` |
+| FT-05 | Pengajuan izin | Praktikan | Memilih sesi aktif, mengisi alasan, dan menyimpan pengajuan berstatus `pending`. | Tersedia | `src/screens/praktikan/LeaveRequestScreen.js`, `src/services/permissionService.js` |
+| FT-06 | Analisis sentimen EDOM | Praktikan, Asisten | Inferensi LinearSVC lokal dengan label positif, netral, atau negatif. | Eksperimental | `ai/model-edom.json`, `ai/sentiment.js`, `src/services/aiService.js` |
+| FT-07 | Review izin | Praktikan, Asisten | Review transaksional menjadi `approved` atau `rejected` dan pemantauan status real-time. | Tersedia | `src/screens/asisten/LeaveReviewScreen.js`, `src/screens/praktikan/LeaveStatusScreen.js` |
+| FT-08 | Validasi dan keamanan | Praktikan, Asisten | Role guard, validasi input, Firestore Security Rules, serta composite indexes. | Parsial | `src/components/navigation/RoleRouteGuard.tsx`, `firestore.rules`, `firestore.indexes.json` |
+
+### Sprint 3 — Lokasi, Peta, dan Kondisi Perangkat
+
+| Kode SRS | Fitur | Peran | Implementasi | Status | Berkas Utama |
+|---|---|---|---|---|---|
+| FT-09 | Halaman presensi khusus | Praktikan | Pemilihan sesi, status sesi, status lokasi, dan status presensi pengguna. | Tersedia | `src/screens/praktikan/AttendanceCheckScreen.js` |
+| FT-10 | Validasi lokasi dan radius | Praktikan | GPS berakurasi maksimal 50 meter, perhitungan Haversine, validasi radius, lokasi kedaluwarsa, dan anti-duplikasi. | Tersedia | `src/services/locationService.js`, `src/services/firestoreService.js`, `firestore.rules` |
+| FT-11 | Pengelolaan lokasi lab | Asisten | Tambah, ubah, aktifkan, dan nonaktifkan laboratorium beserta koordinat dan radius. | Tersedia | `src/screens/asisten/LabLocationManageScreen.js`, `src/services/labService.js` |
+| FT-12 | Peta laboratorium | Praktikan, Asisten | Marker lab, lokasi pengguna, jarak ke lab, serta sesi berlangsung dan berikutnya. | Tersedia | `src/screens/maps/LabMapScreen.js`, `src/components/maps/LabActivitySheet.js` |
+| FT-13 | Notifikasi kegiatan | Praktikan, Asisten | Android notification channel, permission, push token retrieval, dan local notification helper. Pengiriman remote belum tersedia. | Parsial | `src/services/notificationService.js` |
+| FT-14 | Permission dan kondisi perangkat | Praktikan, Asisten | Status izin lokasi/notifikasi, GPS, koneksi, location watcher, dan banner pemulihan. | Tersedia | `src/hooks/useDevicePermissionsAndAlerts.js`, `src/components/common/DeviceConditionBanner.js` |
+
+## Arsitektur dan Alur Utama
+
+```mermaid
+flowchart TD
+  Router[Expo Router] --> Auth[AuthProvider]
+  Auth -->|Belum login| AuthScreen[Login atau Registrasi]
+  Auth -->|Sudah login| Tabs[Dashboard dan Tab Utama]
+
+  Tabs --> Role{Role Aktif}
+  Role -->|Asisten| Lab[Kelola Laboratorium]
+  Lab --> Session[Kelola dan Buka Sesi]
+  Role -->|Praktikan| Attendance[Presensi Berbasis Lokasi]
+  Session --> Attendance
+
+  Attendance --> GPS[Expo Location]
+  Attendance --> Firestore[(Cloud Firestore)]
+  Firestore --> Rules[Firestore Security Rules]
+  Firestore --> Recap[Rekap Real-time]
+
+  Role --> Leave[Pengajuan atau Review Izin]
+  Leave --> AI[EDOM Lokal]
+  AI --> Firestore
 ```
 
-Perintah kedua melakukan perubahan dan hanya boleh dijalankan setelah hasil dry-run diperiksa. Audit relasi seluruh sesi dan laboratorium bersifat read-only:
+### Alur Presensi Berbasis Lokasi
 
-```bash
-npm run audit:session-labs
+```mermaid
+flowchart LR
+  A[Asisten membuat lab aktif] --> B[Asisten membuat sesi dan memilih lab]
+  B --> C[Asisten membuka sesi]
+  C --> D[Praktikan memilih sesi]
+  D --> E[Aplikasi mengambil lokasi terbaru]
+  E --> F{Akurasi maksimal 50 m dan di dalam radius?}
+  F -- Ya --> G[Validasi identitas dan duplikasi]
+  G --> H[Presensi disimpan ke Firestore]
+  F -- Tidak --> I[Presensi ditolak]
 ```
 
----
+### Alur Pengajuan Izin
 
-## 3. Integrasi AI EDOM
+1. Praktikan memilih sesi terbuka dan menulis alasan izin.
+2. Model EDOM menganalisis alasan secara lokal.
+3. Pengajuan disimpan ke `leave_requests` dengan status `pending`.
+4. Asisten meninjau alasan dan label AI sebagai informasi pendukung.
+5. Keputusan disimpan secara transaksional sebagai `approved` atau `rejected`.
+6. Praktikan menerima pembaruan status melalui listener Firestore.
 
-AI EDOM digunakan untuk melakukan klasifikasi sentimen terhadap teks alasan pengajuan izin.
+Hasil AI bersifat eksperimental dan tidak digunakan sebagai keputusan otomatis.
 
-### 3.1 Mekanisme Analisis
+## Teknologi
 
-1. Praktikan mengisi alasan izin.
-2. Sistem mengirim teks ke fungsi `analyzeSentiment()`.
-3. Model lokal melakukan pemrosesan teks dan klasifikasi sentimen.
-4. Sistem menghasilkan kategori sentimen.
-5. Hasil analisis disimpan bersama data pengajuan di Cloud Firestore.
-6. Hasil klasifikasi ditampilkan melalui komponen `AIBadge`.
-
-### 3.2 Kategori Sentimen
-
-| Kategori | Keterangan |
+| Teknologi | Kegunaan |
 |---|---|
-| Positif | Teks memiliki kecenderungan sentimen positif. |
-| Netral | Teks memiliki kecenderungan sentimen netral. |
-| Negatif | Teks memiliki kecenderungan sentimen negatif. |
-| Perlu Verifikasi Manual | Analisis tidak menghasilkan kategori yang dapat digunakan. |
+| Expo SDK 58 | Runtime, tooling, development client, dan integrasi native. |
+| React Native 0.88 | Antarmuka mobile lintas platform. |
+| React 19 | Komponen dan state UI. |
+| TypeScript dan JavaScript | Implementasi aplikasi. |
+| Expo Router | File-based routing dan navigasi. |
+| Firebase Authentication | Autentikasi email/password. |
+| Cloud Firestore | Penyimpanan dan sinkronisasi data real-time. |
+| Firebase Security Rules | Otorisasi dan validasi data. |
+| Expo Location | Permission, koordinat, dan akurasi GPS. |
+| react-native-maps | Peta dan marker native. |
+| Expo Notifications | Permission, channel Android, token, dan notifikasi lokal. |
+| Jest | Unit test service dan domain. |
+| EAS Build dan Update | Build cloud serta pembaruan aplikasi. |
 
-### 3.3 Karakteristik Model
-
-- Model dijalankan secara lokal menggunakan JavaScript.
-- Tidak memerlukan layanan API eksternal untuk proses klasifikasi.
-- Menggunakan algoritma Linear Support Vector Classifier (LinearSVC).
-- Hasil analisis digunakan sebagai informasi pendukung bagi Asisten.
-
-**Catatan:** Model EDOM yang digunakan masih merupakan baseline penelitian dan belum divalidasi secara khusus menggunakan dataset komentar praktikum. Oleh karena itu, hasil klasifikasi bersifat eksperimental, bukan keputusan otomatis. Asisten tetap bertanggung jawab melakukan pemeriksaan dan menentukan persetujuan atau penolakan pengajuan izin.
-
----
-
-## 4. Struktur Direktori Proyek
-
-Berikut gambaran struktur direktori berdasarkan modul yang dikembangkan. Beberapa direktori dapat berbeda sesuai implementasi akhir proyek.
+## Struktur Proyek
 
 ```text
-lab-attendance-app/
-├── ai/
-│   ├── model-edom.json
-│   └── sentiment.js
-├── src/
-│   ├── app/
-│   │   └── (tabs)/
-│   ├── components/
-│   │   └── common/
-│   │       └── AIBadge.js
-│   ├── config/
-│   │   └── firebase.js
-│   ├── context/
-│   │   └── AuthContext.js
-│   ├── screens/
-│   │   ├── asisten/
-│   │   │   └── LeaveReviewScreen.js
-│   │   └── praktikan/
-│   │       ├── LeaveRequestScreen.js
-│   │       └── LeaveStatusScreen.js
-│   └── services/
-│       ├── aiService.js
-│       └── permissionService.js
-├── app.json
-├── eas.json
-├── package.json
-├── PRAKMOBILE1.md
-└── README.md
+ppk-mobile-praktikum/
+|-- ai/                         # Model dan inference EDOM
+|-- assets/                     # Ikon, splash screen, dan aset aplikasi
+|-- scripts/                    # Migrasi role dan audit relasi sesi-lab
+|-- src/
+|   |-- app/                    # Route dan layout Expo Router
+|   |-- components/             # Komponen UI bersama
+|   |-- config/                 # Konfigurasi Firebase
+|   |-- context/                # AuthContext dan AppContext
+|   |-- features/               # Modul fitur terkomposisi
+|   |-- hooks/                  # Hook presensi dan kondisi perangkat
+|   |-- screens/                # Screen autentikasi, asisten, praktikan, dan peta
+|   |-- services/               # Firebase, lokasi, notifikasi, izin, dan AI
+|   |-- theme/                  # Token tema terang dan gelap
+|   `-- types/                  # Kontrak tipe domain
+|-- tests/                      # Unit test Jest
+|-- app.json                    # Konfigurasi Expo dan config plugins
+|-- eas.json                    # Profil EAS Build
+|-- firebase.json               # Konfigurasi deployment Firebase
+|-- firestore.rules             # Firestore Security Rules
+|-- firestore.indexes.json      # Composite indexes Firestore
+`-- package.json                # Dependency dan script proyek
 ```
 
-Keterangan beberapa berkas utama:
+## Konfigurasi Environment
 
-| Berkas | Fungsi |
-|---|---|
-| `ai/model-edom.json` | Menyimpan parameter model klasifikasi sentimen EDOM. |
-| `ai/sentiment.js` | Implementasi mesin klasifikasi sentimen. |
-| `src/config/firebase.js` | Konfigurasi koneksi Firebase. |
-| `src/context/AuthContext.js` | Pengelolaan konteks autentikasi pengguna. |
-| `src/components/common/AIBadge.js` | Komponen tampilan hasil klasifikasi sentimen. |
-| `src/services/aiService.js` | Penghubung aplikasi dengan model AI EDOM. |
-| `src/services/permissionService.js` | Pengelolaan pengajuan izin, pemantauan data, dan keputusan Asisten di Firestore. |
-| `src/screens/praktikan/LeaveRequestScreen.js` | Formulir pengajuan izin Praktikan. |
-| `src/screens/praktikan/LeaveStatusScreen.js` | Tampilan status pengajuan izin Praktikan. |
-| `src/screens/asisten/LeaveReviewScreen.js` | Tampilan pemeriksaan pengajuan izin oleh Asisten. |
+Salin `.env.example` menjadi `.env`, lalu isi Firebase Web Client Configuration:
 
----
-
-## 5. Panduan Build Aplikasi dengan EAS
-
-Gunakan EAS Build untuk menghasilkan aplikasi standalone.
-
-1. Login ke akun Expo:
-
-   ```bash
-   npx eas-cli@latest login
-   ```
-
-2. Inisialisasi konfigurasi EAS jika belum tersedia:
-
-   ```bash
-   npx eas-cli@latest build:configure
-   ```
-
-3. Build aplikasi Android menggunakan profil preview:
-
-   ```bash
-   npx eas-cli@latest build -p android --profile preview
-   ```
-
-4. Setelah proses build selesai, unduh hasil build melalui tautan yang disediakan EAS.
-
-Karena konfigurasi native `expo-notifications` berubah, development client lama harus dibangun ulang satu kali:
-
-```bash
-npx eas-cli@latest build --profile development --platform android
+```dotenv
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+EXPO_PUBLIC_FIREBASE_APP_ID=
+EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=
 ```
 
-Setelah APK development terbaru terpasang, perubahan JavaScript berikutnya cukup dijalankan melalui Metro tanpa build native ulang.
+Konfigurasi client Firebase bukan kredensial server. Keamanan data tetap bergantung pada Authentication, Firestore Security Rules, dan pembatasan akses project.
 
----
+## Menjalankan Proyek
 
-## 6. Menjalankan dan Memvalidasi Proyek
-
-Instal dependency dan jalankan development client:
+Proyek menggunakan npm karena memiliki `package-lock.json`.
 
 ```bash
 npm install
 npm run start:dev
 ```
 
-Gunakan tunnel hanya bila perangkat tidak dapat mengakses komputer melalui LAN:
+Perintah pengembangan lain:
 
 ```bash
-npm run start:tunnel
+npm run start            # Metro standar
+npm run start:dev:clear  # Development client dengan cache bersih
+npm run start:tunnel     # Development client melalui tunnel
+npm run web              # Menjalankan versi web
 ```
 
-Jika perubahan tidak terbaca, hentikan Metro, lalu jalankan satu kali dengan cache bersih:
+Expo Go tidak memuat seluruh native module yang digunakan proyek. Gunakan development build untuk menguji Maps dan Notifications secara penuh.
 
-```bash
-npm run start:dev:clear
-```
+## Validasi
 
-Quality gate lokal:
+Jalankan quality gate sebelum membuat commit atau build:
 
 ```bash
 npm run validate
@@ -314,5 +224,74 @@ npx expo-doctor
 npx expo install --check
 ```
 
----
+`npm run validate` menjalankan lint, TypeScript typecheck, dan test Jest secara berurutan.
 
+Perintah individual:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+```
+
+## Firebase dan EAS
+
+### Deploy Firestore Rules dan Indexes
+
+```bash
+npx firebase-tools deploy --only firestore:rules,firestore:indexes
+```
+
+### Migrasi Role Lama
+
+Gunakan Application Default Credentials atau service account administratif. Periksa dry-run sebelum menerapkan perubahan:
+
+```bash
+npm run migrate:user-roles
+npm run migrate:user-roles -- --apply
+```
+
+Audit relasi sesi dan laboratorium tidak melakukan perubahan data:
+
+```bash
+npm run audit:session-labs
+```
+
+### Development Build Android
+
+Perubahan config plugin atau native dependency memerlukan build baru:
+
+```bash
+npx eas-cli@latest build --profile development --platform android
+```
+
+### Preview Build Android
+
+```bash
+npx eas-cli@latest build --profile preview --platform android
+```
+
+Konfigurasi profil build tersedia pada `eas.json`.
+
+## Batasan Implementasi
+
+- Push notification belum dikirim end-to-end ke perangkat pengguna lain. Repository baru menyediakan permission, channel Android, token retrieval, listener, dan local notification helper. Remote delivery masih memerlukan penyimpanan token serta backend tepercaya.
+- Rules dan indexes pada repository baru aktif setelah dideploy ke project Firebase target.
+- Validasi GPS mengurangi input lokasi buruk, tetapi tidak menjamin perangkat bebas dari location spoofing.
+- Model EDOM merupakan baseline penelitian dan belum divalidasi khusus untuk alasan izin praktikum.
+- Pengujian Maps, GPS, notification delivery, dan alur dua akun tetap memerlukan perangkat fisik.
+- Advisory dependency tidak boleh ditangani menggunakan `npm audit fix --force` jika perbaikannya menurunkan versi utama Expo atau Firebase.
+
+## Dokumentasi Proyek
+
+| Dokumen | Isi |
+|---|---|
+| [PRAKMOBILE1.md](./PRAKMOBILE1.md) | Analisis kebutuhan, domain, dan pembagian tugas Sprint 1. |
+| [PRAKMOBILE2.md](./PRAKMOBILE2.md) | SRS dan rancangan implementasi Sprint 2. |
+| [PRAKMOBILE3.md](./PRAKMOBILE3.md) | SRS lokasi, peta, notifikasi, dan pembagian tugas Sprint 3. |
+| [AUDITSYS19NOV.md](./AUDITSYS19NOV.md) | Audit teknis, addendum, hasil remediasi, dan langkah aktivasi environment. |
+| [AGENTS.md](./AGENTS.md) | Aturan kontribusi dan workflow repository. |
+
+## Lisensi
+
+Proyek menggunakan lisensi yang tercantum pada [LICENSE](./LICENSE).
