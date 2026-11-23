@@ -16,7 +16,6 @@ import {
   updateSession,
   deleteSession,
   submitAttendance,
-  seedInitialPracticalData,
 } from '../services/firestoreService';
 
 /**
@@ -41,26 +40,19 @@ export const useAttendance = (sessionId = '', studentId = '') => {
 
   // 1. Subscribe ke seluruh sesi praktikum secara real-time
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     let unsubscribeSessions = () => {};
 
-    try {
-      unsubscribeSessions = subscribeToSessions(
-        (data) => {
-          setSessions(data);
-          setLoading(false);
-          setError(null);
-        },
-        (err) => {
-          setError(err.message || 'Gagal memuat sesi real-time dari Firestore');
-          setLoading(false);
-        }
-      );
-    } catch (e) {
-      setError(e.message || 'Terjadi kesalahan inisialisasi Firestore');
-      setLoading(false);
-    }
+    unsubscribeSessions = subscribeToSessions(
+      (data) => {
+        setSessions(data);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        setError(err.message || 'Gagal memuat sesi real-time dari Firestore');
+        setLoading(false);
+      }
+    );
 
     return () => {
       if (typeof unsubscribeSessions === 'function') {
@@ -72,7 +64,6 @@ export const useAttendance = (sessionId = '', studentId = '') => {
   // 2. Subscribe ke daftar presensi sesi tertentu (untuk Asisten & Rekapitulasi)
   useEffect(() => {
     if (!sessionId) {
-      setAttendances([]);
       return;
     }
 
@@ -94,7 +85,6 @@ export const useAttendance = (sessionId = '', studentId = '') => {
   // 3. Subscribe ke status presensi pengguna tertentu pada sesi (untuk Praktikan)
   useEffect(() => {
     if (!sessionId || !studentId) {
-      setUserAttendanceRecord(null);
       return;
     }
 
@@ -155,11 +145,11 @@ export const useAttendance = (sessionId = '', studentId = '') => {
 
   // Action: Membuka sesi (Asisten)
   const handleOpenSession = useCallback(
-    async (targetSessionId, ruangLab = '', catatan = '') => {
+    async (targetSessionId, catatan = '') => {
       setActionLoading(true);
       try {
         const id = targetSessionId || sessionId;
-        const res = await openSession(id, ruangLab, catatan);
+        const res = await openSession(id, catatan);
         setActionLoading(false);
         return res;
       } catch (err) {
@@ -247,14 +237,6 @@ export const useAttendance = (sessionId = '', studentId = '') => {
     return res;
   }, []);
 
-  // Action: Seed Data Awal (Asisten)
-  const handleSeedData = useCallback(async () => {
-    setActionLoading(true);
-    const res = await seedInitialPracticalData();
-    setActionLoading(false);
-    return res;
-  }, []);
-
   return {
     sessions,
     activeSessions,
@@ -273,7 +255,6 @@ export const useAttendance = (sessionId = '', studentId = '') => {
     handleCreateSession,
     handleUpdateSession,
     handleDeleteSession,
-    handleSeedData,
   };
 };
 

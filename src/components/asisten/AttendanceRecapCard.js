@@ -7,17 +7,14 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { useContext } from 'react';
-import { AppContext } from '../../context/AppContext';
-import { lightTheme } from '../../theme';
+import { useApp } from '../../context/AppContext';
 
 export const AttendanceRecapCard = ({
   session,
   attendances = [],
   loading = false,
 }) => {
-  const context = useContext(AppContext);
-  const tema = context?.tema || lightTheme;
+  const { tema } = useApp();
 
   const totalHadir = attendances.filter((a) => a.statusKehadiran === 'HADIR').length;
   const totalIzin = attendances.filter((a) => a.statusKehadiran === 'IZIN').length;

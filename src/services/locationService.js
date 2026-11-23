@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 
 const LOCATION_MAX_AGE_MS = 60_000;
+export const MAX_LOCATION_ACCURACY_METERS = 50;
 
 export class LocationServiceError extends Error {
   constructor(code, message) {
@@ -118,6 +119,7 @@ export const getCurrentDeviceLocation = async () => {
     result.coords.longitude
   );
   const capturedAt = Number(result.timestamp) || Date.now();
+  const accuracyMeters = Number(result.coords.accuracy);
 
   if (Date.now() - capturedAt > LOCATION_MAX_AGE_MS || capturedAt > Date.now() + 5_000) {
     throw new LocationServiceError(
@@ -126,11 +128,23 @@ export const getCurrentDeviceLocation = async () => {
     );
   }
 
+  if (!Number.isFinite(accuracyMeters) || accuracyMeters < 0) {
+    throw new LocationServiceError(
+      'accuracy-unavailable',
+      'Akurasi lokasi tidak tersedia. Pindah ke area terbuka lalu perbarui lokasi.'
+    );
+  }
+
+  if (accuracyMeters > MAX_LOCATION_ACCURACY_METERS) {
+    throw new LocationServiceError(
+      'accuracy-too-low',
+      `Akurasi lokasi masih ${Math.round(accuracyMeters)} meter. Diperlukan akurasi maksimal ${MAX_LOCATION_ACCURACY_METERS} meter.`
+    );
+  }
+
   return {
     ...coordinates,
-    accuracyMeters: Number.isFinite(result.coords.accuracy)
-      ? Math.max(0, result.coords.accuracy)
-      : 0,
+    accuracyMeters,
     capturedAt,
   };
 };

@@ -10,23 +10,14 @@
  */
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout(): React.JSX.Element {
-  const { daftarSesi, daftarPresensi, penggunaAktif, tema } = useApp();
-
-  // Sesi yang sedang dibuka
-  const sesiDibukaList = daftarSesi.filter((s) => s.status === 'DIBUKA');
-  // Cek apakah praktikan aktif belum presensi pada sesi yang sedang dibuka
-  const adaSesiPerluPresensi = sesiDibukaList.some(
-    (sesi) =>
-      !daftarPresensi.some(
-        (p) => p.sesiId === sesi.id && p.praktikanId === penggunaAktif.id
-      )
-  );
+  const { tema } = useApp();
+  const { role } = useAuth();
 
   return (
     <Tabs
@@ -72,21 +63,7 @@ export default function TabLayout(): React.JSX.Element {
         options={{
           title: 'Presensi',
           tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconWrapper}>
-              <Ionicons
-                name={focused ? 'checkbox' : 'checkbox-outline'}
-                size={20}
-                color={color as string}
-              />
-              {adaSesiPerluPresensi && (
-                <View
-                  style={[
-                    styles.tabDotBadge,
-                    { borderColor: tema.tabBar },
-                  ]}
-                />
-              )}
-            </View>
+            <Ionicons name={focused ? 'checkbox' : 'checkbox-outline'} size={20} color={color as string} />
           ),
         }}
       />
@@ -96,6 +73,7 @@ export default function TabLayout(): React.JSX.Element {
         name="rekap"
         options={{
           title: 'Rekap',
+          href: role === 'asisten' ? '/rekap' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'stats-chart' : 'stats-chart-outline'}
@@ -123,21 +101,3 @@ export default function TabLayout(): React.JSX.Element {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  iconWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabDotBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -5,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#DC2626',
-    borderWidth: 1.5,
-  },
-});

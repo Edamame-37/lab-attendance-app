@@ -36,10 +36,8 @@ export default function SesiScreen(): React.JSX.Element {
   const { tema } = useApp();
   const { userProfile, role: authRole } = useAuth();
 
-  // Mode peran tampilan: default mengikuti role auth pengguna, dengan opsi toggle simulasi untuk penguji
-  const [activeRoleView, setActiveRoleView] = useState<'asisten' | 'praktikan'>(
-    authRole === 'asisten' ? 'asisten' : 'praktikan'
-  );
+  // Tampilan mengikuti role canonical akun. Switcher simulasi tidak digunakan.
+  const activeRoleView: 'asisten' | 'praktikan' = authRole === 'asisten' ? 'asisten' : 'praktikan';
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
 
@@ -62,7 +60,6 @@ export default function SesiScreen(): React.JSX.Element {
   const [formJamSelesai, setFormJamSelesai] = useState<string>('10:30');
 
   // Form buka sesi
-  const [openRuangLab, setOpenRuangLab] = useState<string>('');
   const [openCatatan, setOpenCatatan] = useState<string>('');
 
   // Hook real-time attendance Firestore
@@ -78,7 +75,6 @@ export default function SesiScreen(): React.JSX.Element {
   const handleCreateSession = attendanceHook.handleCreateSession;
   const handleUpdateSession = attendanceHook.handleUpdateSession;
   const handleDeleteSession = attendanceHook.handleDeleteSession;
-  const handleSeedData = attendanceHook.handleSeedData;
 
   const [activeLabs, setActiveLabs] = useState<any[]>([]);
 
@@ -103,6 +99,10 @@ export default function SesiScreen(): React.JSX.Element {
       Alert.alert('Validasi Gagal', 'Nama praktikum, kelas, dan laboratorium wajib diisi.');
       return;
     }
+    if (!userProfile?.uid || !userProfile.nama) {
+      Alert.alert('Sesi Login Tidak Valid', 'Profil asisten tidak tersedia. Silakan login kembali.');
+      return;
+    }
 
     const selectedLab = activeLabs.find((lab) => lab.id === formLabId);
 
@@ -116,15 +116,8 @@ export default function SesiScreen(): React.JSX.Element {
       hari: formHari.trim(),
       jamMulai: formJamMulai.trim(),
       jamSelesai: formJamSelesai.trim(),
-      namaAsisten: userProfile?.nama || 'Farrel Hidayat',
-      asistenId: userProfile?.uid || 'asisten-farrel',
-      daftarPeserta: [
-        { nim: '21120122140001', nama: 'Budi Santoso' },
-        { nim: '21120122140002', nama: 'Siti Rahmawati' },
-        { nim: '21120122140003', nama: 'Ahmad Fauzan' },
-        { nim: '21120122140004', nama: 'Farrel Hidayat' },
-        { nim: '21120122140005', nama: 'Dewi Lestari' },
-      ],
+      namaAsisten: userProfile.nama,
+      asistenId: userProfile.uid,
     };
 
     const res = await handleCreateSession(payload);
@@ -188,11 +181,7 @@ export default function SesiScreen(): React.JSX.Element {
   // Handler Buka Sesi (SRS-FT-02 & SRS-FT-04)
   const onConfirmOpenSession = async () => {
     if (!targetSessionToOpen) return;
-    const res = await handleOpenSession(
-      targetSessionToOpen.id,
-      openRuangLab || targetSessionToOpen.ruangLab,
-      openCatatan
-    );
+    const res = await handleOpenSession(targetSessionToOpen.id, openCatatan);
 
     if (res.success) {
       setSelectedSessionId(targetSessionToOpen.id);
@@ -253,24 +242,6 @@ export default function SesiScreen(): React.JSX.Element {
     );
   };
 
-  // Handler Seed Data
-  const onTriggerSeedData = async () => {
-    Alert.alert(
-      'Muat Data Awal',
-      'Inisialisasi data master praktikum, kelas, dan peserta ke Cloud Firestore?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Muat Sekarang',
-          onPress: async () => {
-            const res = await handleSeedData();
-            Alert.alert(res.success ? 'Berhasil' : 'Pemberitahuan', res.message);
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: tema.canvas }]}>
       <View style={[styles.container, { backgroundColor: tema.canvas }]}>
@@ -312,8 +283,8 @@ export default function SesiScreen(): React.JSX.Element {
           </TouchableOpacity>
         </View>
 
-        {/* ROLE SIMULATOR SWITCHER (Memudahkan Evaluasi Pengajar) */}
-        <View style={[styles.roleBar, { backgroundColor: tema.surfaceRaised, borderColor: tema.borderSubtle }]}>
+        {/* Role simulator lama dinonaktifkan; akses mengikuti profil Firebase. */}
+        {false && <View style={[styles.roleBar, { backgroundColor: tema.surfaceRaised, borderColor: tema.borderSubtle }]}>
           <Text style={[styles.roleBarLabel, { color: tema.textSecondary }]}>Mode Tampilan:</Text>
           <View style={styles.roleTabs}>
             <TouchableOpacity
@@ -321,7 +292,7 @@ export default function SesiScreen(): React.JSX.Element {
                 styles.roleTabItem,
                 activeRoleView === 'asisten' && [styles.roleTabItemActive, { backgroundColor: tema.accent }],
               ]}
-              onPress={() => setActiveRoleView('asisten')}
+              disabled
             >
               <Text
                 style={[
@@ -338,7 +309,7 @@ export default function SesiScreen(): React.JSX.Element {
                 styles.roleTabItem,
                 activeRoleView === 'praktikan' && [styles.roleTabItemActive, { backgroundColor: tema.accent }],
               ]}
-              onPress={() => setActiveRoleView('praktikan')}
+              disabled
             >
               <Text
                 style={[
@@ -350,7 +321,7 @@ export default function SesiScreen(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </View>}
 
         <ScrollView
           style={styles.scrollView}
@@ -392,15 +363,6 @@ export default function SesiScreen(): React.JSX.Element {
                   >
                     <Text style={[styles.btnSeedText, { color: tema.accent }]}>Lokasi Lab</Text>
                   </TouchableOpacity>
-                  {sessions.length === 0 && (
-                    <TouchableOpacity
-                      style={[styles.btnSeed, { borderColor: tema.accent }]}
-                      onPress={onTriggerSeedData}
-                      disabled={actionLoading}
-                    >
-                      <Text style={[styles.btnSeedText, { color: tema.accent }]}>+ Seed Data</Text>
-                    </TouchableOpacity>
-                  )}
                   <TouchableOpacity
                     style={[styles.btnAddSession, { backgroundColor: tema.accent }]}
                     onPress={() => {
@@ -447,14 +409,8 @@ export default function SesiScreen(): React.JSX.Element {
                     Belum Ada Dokumen Sesi di Firestore
                   </Text>
                   <Text style={[styles.emptyDesc, { color: tema.textSecondary }]}>
-                    Klik tombol &quot;Seed Data&quot; untuk mengisi master praktikum, kelas, dan peserta awal secara otomatis.
+                    Buat laboratorium aktif terlebih dahulu, lalu gunakan tombol &quot;Buat Sesi&quot;.
                   </Text>
-                  <TouchableOpacity
-                    style={[styles.btnSeedFull, { backgroundColor: tema.accent }]}
-                    onPress={onTriggerSeedData}
-                  >
-                    <Text style={styles.btnSeedFullText}>Muat Data Awal Firestore</Text>
-                  </TouchableOpacity>
                 </View>
               ) : (
                 sessions.map((sesi) => {
@@ -555,7 +511,6 @@ export default function SesiScreen(): React.JSX.Element {
                             style={[styles.btnActionControl, { backgroundColor: tema.statusHadirBg || '#DCFCE7' }]}
                             onPress={() => {
                               setTargetSessionToOpen(sesi);
-                              setOpenRuangLab(sesi.ruangLab || '');
                               setOpenCatatan('');
                               setModalOpenVisible(true);
                             }}
@@ -796,7 +751,7 @@ export default function SesiScreen(): React.JSX.Element {
                   placeholder="Ruang Lab"
                   placeholderTextColor={tema.textMuted}
                   value={formRuangLab}
-                  onChangeText={setFormRuangLab}
+                  editable={false}
                 />
               </View>
 
@@ -912,7 +867,7 @@ export default function SesiScreen(): React.JSX.Element {
                   placeholder="Ruang Lab"
                   placeholderTextColor={tema.textMuted}
                   value={formRuangLab}
-                  onChangeText={setFormRuangLab}
+                  editable={false}
                 />
               </View>
 
@@ -953,13 +908,11 @@ export default function SesiScreen(): React.JSX.Element {
                 {targetSessionToOpen?.namaPraktikum} ({targetSessionToOpen?.kelas})
               </Text>
 
-              <TextInput
-                style={[styles.modalInput, { borderColor: tema.border, color: tema.textPrimary }]}
-                placeholder="Konfirmasi Ruangan Lab"
-                placeholderTextColor={tema.textMuted}
-                value={openRuangLab}
-                onChangeText={setOpenRuangLab}
-              />
+              <View style={[styles.modalInput, { borderColor: tema.border, justifyContent: 'center' }]}>
+                <Text style={{ color: tema.textPrimary }}>
+                  {targetSessionToOpen?.ruangLab || 'Laboratorium belum dipilih'}
+                </Text>
+              </View>
 
               <TextInput
                 style={[styles.modalInput, { borderColor: tema.border, color: tema.textPrimary, height: 75 }]}

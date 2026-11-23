@@ -24,8 +24,12 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.js';
-import { getLabById, getLabs } from './labService.js';
-import { calculateDistanceMeters, validateCoordinates } from './locationService.js';
+import { getLabById } from './labService.js';
+import {
+  calculateDistanceMeters,
+  MAX_LOCATION_ACCURACY_METERS,
+  validateCoordinates,
+} from './locationService.js';
 
 // Nama koleksi utama di Firestore
 export const COLLECTIONS = {
@@ -33,6 +37,22 @@ export const COLLECTIONS = {
   ATTENDANCES: 'attendances',
   CLASSES: 'classes',
   LABS: 'labs',
+};
+
+export const validateSessionLabConnection = (sessionData, labData) => {
+  if (!sessionData?.labId) {
+    throw new Error('Pilih laboratorium sebelum membuka sesi');
+  }
+  if (!labData || labData.id !== sessionData.labId) {
+    throw new Error('Laboratorium sesi tidak ditemukan');
+  }
+  if (labData.isActive === false) {
+    throw new Error('Laboratorium sesi sedang nonaktif');
+  }
+  if (!labData.location) {
+    throw new Error('Laboratorium sesi belum memiliki koordinat');
+  }
+  return true;
 };
 
 /**
@@ -90,6 +110,9 @@ export const createSession = async (sessionData) => {
     if (!sessionData.namaPraktikum || !sessionData.kelas || !sessionData.labId) {
       throw new Error('Nama praktikum, kelas, dan laboratorium wajib diisi');
     }
+    if (!auth.currentUser?.uid) {
+      throw new Error('Sesi login asisten tidak tersedia');
+    }
 
     const selectedLab = await getLabById(sessionData.labId);
     if (!selectedLab || selectedLab.isActive === false) {
@@ -106,20 +129,16 @@ export const createSession = async (sessionData) => {
       hari: sessionData.hari || 'Senin',
       jamMulai: sessionData.jamMulai || '08:00',
       jamSelesai: sessionData.jamSelesai || '10:30',
-      namaAsisten: sessionData.namaAsisten || 'Farrel (Asisten Lab)',
-      asistenId: sessionData.asistenId || 'asisten-1',
+      namaAsisten: sessionData.namaAsisten?.trim() || 'Asisten Praktikum',
+      asistenId: auth.currentUser.uid,
       status: 'closed', // 'open' | 'closed'
       statusSesi: 'DITUTUP', // 'DIBUKA' | 'DITUTUP' | 'SELESAI'
       catatanPembuka: '',
       waktuBuka: null,
       waktuTutup: null,
-      daftarPeserta: sessionData.daftarPeserta || [
-        { nim: '21120122140001', nama: 'Budi Santoso' },
-        { nim: '21120122140002', nama: 'Siti Rahma' },
-        { nim: '21120122140003', nama: 'Ahmad Fauzi' },
-        { nim: '21120122140004', nama: 'Farrel Hidayat' },
-        { nim: '21120122140005', nama: 'Dewi Lestari' },
-      ],
+      daftarPeserta: Array.isArray(sessionData.daftarPeserta)
+        ? sessionData.daftarPeserta
+        : [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -182,19 +201,26 @@ export const deleteSession = async (sessionId) => {
 /**
  * Membuka sesi praktikum agar praktikan bisa presensi (SRS-FT-02 & SRS-FT-04)
  */
-export const openSession = async (sessionId, ruangLab = '', catatan = '') => {
+export const openSession = async (sessionId, catatan = '') => {
   try {
     const docRef = doc(db, COLLECTIONS.SESSIONS, sessionId);
+    const sessionSnapshot = await getDoc(docRef);
+    if (!sessionSnapshot.exists()) {
+      throw new Error('Sesi praktikum tidak ditemukan');
+    }
+
+    const sessionData = sessionSnapshot.data();
+    const selectedLab = await getLabById(sessionData.labId);
+    validateSessionLabConnection(sessionData, selectedLab);
+
     const updatePayload = {
       status: 'open',
       statusSesi: 'DIBUKA',
+      ruangLab: selectedLab.name,
       waktuBuka: serverTimestamp(),
       catatanPembuka: catatan ? catatan.trim() : '',
       updatedAt: serverTimestamp(),
     };
-    if (ruangLab && ruangLab.trim()) {
-      updatePayload.ruangLab = ruangLab.trim();
-    }
 
     await updateDoc(docRef, updatePayload);
     return { success: true, message: 'Sesi praktikum berhasil dibuka' };
@@ -219,106 +245,6 @@ export const closeSession = async (sessionId) => {
     return { success: true, message: 'Sesi praktikum berhasil ditutup' };
   } catch (error) {
     console.error('Error closeSession:', error);
-    return { success: false, message: error.message };
-  }
-};
-
-/**
- * Mengisi data awal (Seed Data) master praktikum, kelas, dan peserta jika database masih kosong (SRS-FT-02)
- */
-export const seedInitialPracticalData = async () => {
-  try {
-    const activeLabs = await getLabs({ activeOnly: true });
-    const defaultLab = activeLabs[0];
-    if (!defaultLab) {
-      throw new Error('Buat minimal satu laboratorium aktif sebelum memuat data sesi awal');
-    }
-
-    const initialSessions = [
-      {
-        kodeMataKuliah: 'PPK-301',
-        namaPraktikum: 'Praktikum Pemrograman Perangkat Keras',
-        topikMateri: 'Modul 3: Integrasi Cloud Firestore & Realtime Sync',
-        kelas: 'TI-3A',
-        labId: defaultLab.id,
-        ruangLab: defaultLab.name,
-        hari: 'Senin',
-        jamMulai: '08:00',
-        jamSelesai: '10:30',
-        namaAsisten: 'Farrel Hidayat',
-        asistenId: 'asisten-farrel',
-        status: 'open',
-        statusSesi: 'DIBUKA',
-        catatanPembuka: 'Silakan segera presensi melalui aplikasi.',
-        waktuBuka: serverTimestamp(),
-        waktuTutup: null,
-        daftarPeserta: [
-          { nim: '21120122140001', nama: 'Budi Santoso' },
-          { nim: '21120122140002', nama: 'Siti Rahmawati' },
-          { nim: '21120122140003', nama: 'Ahmad Fauzan' },
-          { nim: '21120122140004', nama: 'Rian Kurniawan' },
-          { nim: '21120122140005', nama: 'Nadia Putri' },
-        ],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      {
-        kodeMataKuliah: 'JARKOM-202',
-        namaPraktikum: 'Praktikum Jaringan Komputer',
-        topikMateri: 'Modul 2: Konfigurasi Routing Dinamis OSPF',
-        kelas: 'TI-3B',
-        labId: defaultLab.id,
-        ruangLab: defaultLab.name,
-        hari: 'Rabu',
-        jamMulai: '13:00',
-        jamSelesai: '15:30',
-        namaAsisten: 'Farrel Hidayat',
-        asistenId: 'asisten-farrel',
-        status: 'closed',
-        statusSesi: 'DITUTUP',
-        catatanPembuka: '',
-        waktuBuka: null,
-        waktuTutup: null,
-        daftarPeserta: [
-          { nim: '21120122140010', nama: 'Dimas Anggara' },
-          { nim: '21120122140011', nama: 'Alisa Zahra' },
-        ],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      {
-        kodeMataKuliah: 'BD-101',
-        namaPraktikum: 'Praktikum Basis Data Lanjut',
-        topikMateri: 'Modul 1: Query Optimasi & Indeks NoSQL',
-        kelas: 'TI-3A',
-        labId: defaultLab.id,
-        ruangLab: defaultLab.name,
-        hari: 'Kamis',
-        jamMulai: '10:00',
-        jamSelesai: '12:30',
-        namaAsisten: 'Farrel Hidayat',
-        asistenId: 'asisten-farrel',
-        status: 'closed',
-        statusSesi: 'DITUTUP',
-        catatanPembuka: '',
-        waktuBuka: null,
-        waktuTutup: null,
-        daftarPeserta: [
-          { nim: '21120122140001', nama: 'Budi Santoso' },
-          { nim: '21120122140002', nama: 'Siti Rahmawati' },
-        ],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-    ];
-
-    for (const item of initialSessions) {
-      await addDoc(collection(db, COLLECTIONS.SESSIONS), item);
-    }
-
-    return { success: true, message: 'Data awal praktikum, kelas, dan peserta berhasil dimuat ke Firestore!' };
-  } catch (error) {
-    console.error('Error seedInitialPracticalData:', error);
     return { success: false, message: error.message };
   }
 };
@@ -416,6 +342,17 @@ export const submitAttendance = async ({
       deviceLocation.latitude,
       deviceLocation.longitude
     );
+    const locationAccuracyMeters = Number(deviceLocation.accuracyMeters);
+    if (
+      !Number.isFinite(locationAccuracyMeters) ||
+      locationAccuracyMeters < 0 ||
+      locationAccuracyMeters > MAX_LOCATION_ACCURACY_METERS
+    ) {
+      return {
+        success: false,
+        message: `Presensi ditolak: Akurasi lokasi wajib maksimal ${MAX_LOCATION_ACCURACY_METERS} meter.`,
+      };
+    }
     const capturedAt = Number(deviceLocation.capturedAt);
     if (
       !Number.isFinite(capturedAt) ||
@@ -475,7 +412,7 @@ export const submitAttendance = async ({
       tanggal: now.toISOString().split('T')[0],
       labId: sessionData.labId,
       location: new GeoPoint(validatedLocation.latitude, validatedLocation.longitude),
-      locationAccuracyMeters: Math.max(0, Number(deviceLocation.accuracyMeters) || 0),
+      locationAccuracyMeters,
       distanceMeters,
       locationCapturedAt: Timestamp.fromMillis(capturedAt),
     };
