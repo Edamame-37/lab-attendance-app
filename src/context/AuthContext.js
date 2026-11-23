@@ -53,6 +53,9 @@ export const AuthProvider = ({ children }) => {
   // State profil pengguna dari Firestore (termasuk role, nama, nomorInduk, kelas)
   const [userProfile, setUserProfile] = useState(null);
 
+  // State peran aktif yang bisa dialihkan (untuk simulasi/demo maupun switch peran)
+  const [activeRole, setActiveRole] = useState(null);
+
   // Status loading inisialisasi sesi login awal
   const [isLoading, setIsLoading] = useState(true);
 
@@ -206,7 +209,7 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = !!user && !!userProfile && !!activeRole && availableRoles.includes(activeRole);
 
   /**
-   * Jika profil belum terssdia maka null
+   * Role aktif (dapat dialihkan untuk demonstrasi atau alih tugas)
    */
   const role = activeRole;
 

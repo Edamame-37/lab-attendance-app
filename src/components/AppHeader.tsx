@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { radius, spacing } from '@/theme';
 import type { PeranPengguna } from '@/types';
 
@@ -10,30 +11,27 @@ export interface AppHeaderProps {
   customTitle?: string;
 }
 
-const ROLE_LABELS: Record<PeranPengguna, string> = {
-  praktikan: 'Praktikan',
-  asisten: 'Asisten Laboratorium',
-};
+export const AppHeader: React.FC<AppHeaderProps> = () => {
+  const { peranAktif, penggunaAktif, gantiPeran, tema, modeTema } = useApp();
+  const { userProfile } = useAuth();
+  const [roleModalVisible, setRoleModalVisible] = useState<boolean>(false);
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ customTitle }) => {
-  const { userProfile, role, availableRoles, setActiveRole } = useAuth();
-  const { tema } = useApp();
-  const [roleModalVisible, setRoleModalVisible] = useState(false);
+  // Label opsi peran kontekstual akun login
+  const praktikanSubLabel = userProfile
+    ? `${userProfile.nama} · ${userProfile.nomorInduk || 'Mahasiswa'}${userProfile.kelas ? ` (${userProfile.kelas})` : ''}`
+    : 'Ahmad Fauzi · 2141720001 (TI-3A)';
 
-  const initials = useMemo(
-    () =>
-      (userProfile?.nama || 'Pengguna')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((word) => word[0]?.toUpperCase())
-        .join(''),
-    [userProfile?.nama]
-  );
+  const asistenSubLabel = userProfile
+    ? `${userProfile.nama} · Asisten Laboratorium`
+    : 'Rian Hidayat, S.Kom. · Koordinator RPL';
 
-  const roleText = role === 'asisten'
-    ? ROLE_LABELS.asisten
-    : `${ROLE_LABELS.praktikan}${userProfile?.kelas ? ` · ${userProfile.kelas}` : ''}`;
+  // Dapatkan inisial 2 huruf dari nama pengguna
+  const inisial = penggunaAktif.nama
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((kata) => kata[0].toUpperCase())
+    .join('');
 
   const changeRole = async (nextRole: PeranPengguna): Promise<void> => {
     await setActiveRole(nextRole);
@@ -74,11 +72,112 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ customTitle }) => {
             <Text style={[styles.modalDescription, { color: tema.textSecondary }]}>
               Identitas tetap menggunakan akun {userProfile?.nama}. Hanya akses yang diberikan administrator yang tersedia.
             </Text>
-            {availableRoles.map((availableRole) => {
-              const selected = role === availableRole;
-              return (
-                <TouchableOpacity
-                  key={availableRole}
+
+            {/* Opsi 1: Praktikan */}
+            <TouchableOpacity
+              style={[
+                styles.roleOptionCard,
+                {
+                  backgroundColor:
+                    peranAktif === 'praktikan'
+                      ? tema.accentSurface
+                      : tema.surfaceRaised,
+                  borderColor:
+                    peranAktif === 'praktikan' ? tema.accent : tema.border,
+                },
+              ]}
+              onPress={() => {
+                gantiPeran('praktikan');
+                setRoleModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.optionIconBox,
+                  {
+                    backgroundColor:
+                      peranAktif === 'praktikan'
+                        ? tema.accent
+                        : tema.borderSubtle,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="school"
+                  size={18}
+                  color={
+                    peranAktif === 'praktikan' ? '#FFFFFF' : tema.textMuted
+                  }
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text
+                  style={[
+                    styles.optionTitle,
+                    {
+                      color:
+                        peranAktif === 'praktikan'
+                          ? tema.accentText
+                          : tema.textPrimary,
+                    },
+                  ]}
+                >
+                  Mahasiswa (Praktikan)
+                </Text>
+                <Text
+                  style={[styles.optionSubtitle, { color: tema.textSecondary }]}
+                >
+                  {praktikanSubLabel}
+                </Text>
+              </View>
+              {peranAktif === 'praktikan' && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={tema.accent}
+                />
+              )}
+            </TouchableOpacity>
+
+            {/* Opsi 2: Asisten Lab */}
+            <TouchableOpacity
+              style={[
+                styles.roleOptionCard,
+                {
+                  backgroundColor:
+                    peranAktif === 'asisten'
+                      ? tema.accentSurface
+                      : tema.surfaceRaised,
+                  borderColor:
+                    peranAktif === 'asisten' ? tema.accent : tema.border,
+                },
+              ]}
+              onPress={() => {
+                gantiPeran('asisten');
+                setRoleModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.optionIconBox,
+                  {
+                    backgroundColor:
+                      peranAktif === 'asisten'
+                        ? tema.accent
+                        : tema.borderSubtle,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="shield-checkmark"
+                  size={18}
+                  color={peranAktif === 'asisten' ? '#FFFFFF' : tema.textMuted}
+                />
+              </View>
+              <View style={styles.optionContent}>
+                <Text
                   style={[
                     styles.roleOption,
                     {
@@ -91,16 +190,22 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ customTitle }) => {
                   accessibilityState={{ selected }}
                   accessibilityLabel={`Mode ${ROLE_LABELS[availableRole]}`}
                 >
-                  <Ionicons
-                    name={availableRole === 'asisten' ? 'shield-checkmark-outline' : 'school-outline'}
-                    size={20}
-                    color={selected ? tema.accent : tema.textSecondary}
-                  />
-                  <Text style={[styles.roleOptionText, { color: tema.textPrimary }]}>{ROLE_LABELS[availableRole]}</Text>
-                  {selected ? <Ionicons name="checkmark-circle" size={20} color={tema.accent} /> : null}
-                </TouchableOpacity>
-              );
-            })}
+                  Asisten Laboratorium
+                </Text>
+                <Text
+                  style={[styles.optionSubtitle, { color: tema.textSecondary }]}
+                >
+                  {asistenSubLabel}
+                </Text>
+              </View>
+              {peranAktif === 'asisten' && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={tema.accent}
+                />
+              )}
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
