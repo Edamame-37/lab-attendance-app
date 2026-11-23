@@ -1,6 +1,5 @@
 import {
   collection,
-  addDoc,
   doc,
   query,
   where,
@@ -8,6 +7,7 @@ import {
   onSnapshot,
   serverTimestamp,
   runTransaction,
+  setDoc,
 } from 'firebase/firestore';
 
 import { db } from '../config/firebase';
@@ -28,8 +28,10 @@ export const submitLeaveRequest = async (payload) => {
   }
 
   try {
-    const docRef = await addDoc(
-      collection(db, COLLECTION_NAME),
+    const requestId = `${payload.sessionId}_${payload.studentId}`;
+    const docRef = doc(db, COLLECTION_NAME, requestId);
+    await setDoc(
+      docRef,
       {
         studentId: payload.studentId,
         studentName: payload.studentName,
@@ -46,6 +48,7 @@ export const submitLeaveRequest = async (payload) => {
 
         status: 'pending',
         reviewedBy: null,
+        reviewedByUid: null,
         reviewedAt: null,
         createdAt: serverTimestamp(),
       }
@@ -53,7 +56,7 @@ export const submitLeaveRequest = async (payload) => {
 
     return {
       success: true,
-      id: docRef.id,
+      id: requestId,
     };
   } catch (error) {
     console.error(
@@ -138,7 +141,8 @@ export const subscribeAllLeaveRequests = (
 export const reviewLeaveRequest = async (
   requestId,
   decision,
-  assistantName
+  assistantName,
+  assistantUid
 ) => {
   if (!requestId) {
     throw new Error('ID pengajuan tidak tersedia.');
@@ -152,6 +156,10 @@ export const reviewLeaveRequest = async (
 
   if (!reviewer) {
     throw new Error('Nama Asisten tidak tersedia.');
+  }
+
+  if (!assistantUid) {
+    throw new Error('UID Asisten tidak tersedia.');
   }
 
   try {
@@ -179,6 +187,7 @@ export const reviewLeaveRequest = async (
       transaction.update(requestRef, {
         status: decision,
         reviewedBy: reviewer,
+        reviewedByUid: assistantUid,
         reviewedAt: serverTimestamp(),
       });
     });
