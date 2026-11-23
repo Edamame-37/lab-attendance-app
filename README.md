@@ -6,6 +6,7 @@ Aplikasi presensi laboratorium berbasis React Native dan Expo SDK 58. Sistem men
 
 - [Ringkasan](#ringkasan)
 - [Peran Pengguna](#peran-pengguna)
+- [Auth dan Otorisasi](#auth-dan-otorisasi)
 - [Fitur per Sprint](#fitur-per-sprint)
 - [Arsitektur dan Alur Utama](#arsitektur-dan-alur-utama)
 - [Teknologi](#teknologi)
@@ -38,12 +39,24 @@ Dokumen pengguna mendukung satu atau beberapa role resmi:
 
 ```json
 {
+  "uid": "firebase-auth-uid",
+  "email": "user@example.com",
+  "nama": "Nama Pengguna",
+  "nomorInduk": "21120122140001",
+  "kelas": "TI-3A",
   "role": "praktikan",
-  "roles": ["praktikan", "asisten"]
+  "roles": ["praktikan", "asisten"],
+  "accountStatus": "active"
 }
 ```
 
 Field `roles` harus diprovisikan melalui Firebase Console atau backend administratif tepercaya. Pengguna tidak dapat menambahkan role miliknya sendiri melalui aplikasi.
+
+## Auth dan Otorisasi
+
+Firebase Authentication menentukan identitas login, sedangkan `users/{uid}` menentukan profil, status akun, dan role yang diizinkan. Role aktif hanya disimpan sebagai preferensi lokal dan tidak dapat memberikan akses di luar `roles`.
+
+Route publik, route akun aktif, dan route khusus role dipisahkan melalui protected routes Expo Router. Firestore Security Rules tetap menjadi enforcement boundary untuk setiap operasi data. Matriks akses, skema field, diagram auth, serta user flow praktikan dan asisten tersedia di [docs/USER_FLOWS_AND_AUTH.md](./docs/USER_FLOWS_AND_AUTH.md).
 
 ## Fitur per Sprint
 
@@ -71,7 +84,7 @@ Status pada tabel menunjukkan cakupan implementasi fitur, bukan hasil acceptance
 | FT-05 | Pengajuan izin | Praktikan | Memilih sesi aktif, mengisi alasan, dan menyimpan pengajuan berstatus `pending`. | Tersedia | `src/screens/praktikan/LeaveRequestScreen.js`, `src/services/permissionService.js` |
 | FT-06 | Analisis sentimen EDOM | Praktikan, Asisten | Inferensi LinearSVC lokal dengan label positif, netral, atau negatif. | Eksperimental | `ai/model-edom.json`, `ai/sentiment.js`, `src/services/aiService.js` |
 | FT-07 | Review izin | Praktikan, Asisten | Review transaksional menjadi `approved` atau `rejected` dan pemantauan status real-time. | Tersedia | `src/screens/asisten/LeaveReviewScreen.js`, `src/screens/praktikan/LeaveStatusScreen.js` |
-| FT-08 | Validasi dan keamanan | Praktikan, Asisten | Role guard, validasi input, Firestore Security Rules, serta composite indexes. | Parsial | `src/components/navigation/RoleRouteGuard.tsx`, `firestore.rules`, `firestore.indexes.json` |
+| FT-08 | Validasi dan keamanan | Praktikan, Asisten | Validasi profil, protected routes per role, Firestore Security Rules, serta composite indexes. | Tersedia | `src/domain/auth.ts`, `src/app/_layout.tsx`, `firestore.rules`, `firestore.indexes.json` |
 
 ### Sprint 3 — Lokasi, Peta, dan Kondisi Perangkat
 
@@ -290,6 +303,8 @@ Konfigurasi profil build tersedia pada `eas.json`.
 | [PRAKMOBILE2.md](./PRAKMOBILE2.md) | SRS dan rancangan implementasi Sprint 2. |
 | [PRAKMOBILE3.md](./PRAKMOBILE3.md) | SRS lokasi, peta, notifikasi, dan pembagian tugas Sprint 3. |
 | [AUDITSYS19NOV.md](./AUDITSYS19NOV.md) | Audit teknis, addendum, hasil remediasi, dan langkah aktivasi environment. |
+| [AUDIT_USERFLOW_AUTH_24NOV2026.md](./AUDIT_USERFLOW_AUTH_24NOV2026.md) | Perbandingan kondisi aktual dan ideal untuk auth, role, user flow, serta hasil penyesuaian. |
+| [docs/USER_FLOWS_AND_AUTH.md](./docs/USER_FLOWS_AND_AUTH.md) | Kontrak role, skema profil, proteksi route, provisioning, dan diagram user flow. |
 | [AGENTS.md](./AGENTS.md) | Aturan kontribusi dan workflow repository. |
 
 ## Lisensi
