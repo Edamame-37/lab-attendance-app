@@ -7,7 +7,8 @@
  * @srs SRS-FT-01, SRS-FT-08
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import {
@@ -32,6 +33,15 @@ import {
  * Context Autentikasi Global
  */
 const AuthContext = createContext(null);
+const ACTIVE_ROLE_STORAGE_KEY = 'ppk.activeRole';
+
+export const normalizeProfileRoles = (profile) => {
+  if (!profile) return [];
+  if (Array.isArray(profile.roles)) {
+    return [...new Set(profile.roles.filter((role) => ['praktikan', 'asisten'].includes(role)))];
+  }
+  return ['praktikan', 'asisten'].includes(profile.role) ? [profile.role] : [];
+};
 
 /**
  * AuthProvider membungkus aplikasi untuk menyediakan state autentikasi ke seluruh komponen
@@ -48,6 +58,18 @@ export const AuthProvider = ({ children }) => {
 
   // Status error autentikasi terkini (jika ada)
   const [authError, setAuthError] = useState(null);
+  const [activeRole, setActiveRoleState] = useState(null);
+
+  const applyProfile = useCallback(async (profile) => {
+    const roles = normalizeProfileRoles(profile);
+    if (!profile || roles.length === 0) return false;
+
+    const storedRole = await AsyncStorage.getItem(ACTIVE_ROLE_STORAGE_KEY);
+    const nextRole = roles.includes(storedRole) ? storedRole : roles[0];
+    setUserProfile({ ...profile, role: nextRole, roles });
+    setActiveRoleState(nextRole);
+    return true;
+  }, []);
 
   /**
    * Listener real-time status autentikasi Firebase
@@ -57,6 +79,7 @@ export const AuthProvider = ({ children }) => {
       if (!currentUser) {
         setUser(null);
         setUserProfile(null);
+        setActiveRoleState(null);
         setAuthError(null);
         setIsLoading(false);
         return;
@@ -69,9 +92,7 @@ export const AuthProvider = ({ children }) => {
       try {
         // Ambil data profil pengguna dari Firestore
         const profile = await getUserProfile(currentUser.uid);
-        if (profile && ['praktikan', 'asisten'].includes(profile.role)) {
-          setUserProfile(profile);
-        } else {
+        if (!(await applyProfile(profile))) {
           setUserProfile(null);
           setAuthError(
             'Profil pengguna tidak ditemukan atau role tidak valid. Hubungi administrator.'
@@ -102,7 +123,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [applyProfile]);
 
   /**
    * Fungsi Login
@@ -114,7 +135,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { user: loggedInUser, profile } = await loginUser(email, password);
       setUser(loggedInUser);
-      setUserProfile(profile);
+      await applyProfile(profile);
       return { success: true, user: loggedInUser, profile };
     } catch (error) {
       const errorMessage = formatAuthError(error);
@@ -132,7 +153,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { user: registeredUser, profile } = await registerUser(userData);
       setUser(registeredUser);
-      setUserProfile(profile);
+      await applyProfile(profile);
       return { success: true, user: registeredUser, profile };
     } catch (error) {
       const errorMessage = formatAuthError(error);
@@ -150,6 +171,8 @@ export const AuthProvider = ({ children }) => {
       await logoutUser();
       setUser(null);
       setUserProfile(null);
+      setActiveRoleState(null);
+      await AsyncStorage.removeItem(ACTIVE_ROLE_STORAGE_KEY);
     } catch (error) {
       const errorMessage = formatAuthError(error);
       setAuthError(errorMessage);
@@ -165,7 +188,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const profile = await getUserProfile(user.uid);
       if (profile) {
-        setUserProfile(profile);
+        await applyProfile(profile);
       }
     } catch (error) {
       console.warn('Gagal memuat ulang profil pengguna:', error);
@@ -175,17 +198,34 @@ export const AuthProvider = ({ children }) => {
   /**
    * Autentikasi aplikasi baru dianggap valid kalau profil dan role pengguna juga valid
    */
-  const isAuthenticated = !!user && !!userProfile && ['praktikan', 'asisten'].includes(userProfile.role);
+  const availableRoles = useMemo(
+    () => normalizeProfileRoles(userProfile),
+    [userProfile]
+  );
+
+  const isAuthenticated = !!user && !!userProfile && !!activeRole && availableRoles.includes(activeRole);
 
   /**
    * Jika profil belum terssdia maka null
    */
-  const role = userProfile?.role || null;
+  const role = activeRole;
+
+  const setActiveRole = useCallback(async (nextRole) => {
+    if (!availableRoles.includes(nextRole)) {
+      throw new Error('Peran tersebut tidak diberikan kepada akun ini.');
+    }
+    setActiveRoleState(nextRole);
+    setUserProfile((current) => current ? { ...current, role: nextRole } : current);
+    await AsyncStorage.setItem(ACTIVE_ROLE_STORAGE_KEY, nextRole);
+  }, [availableRoles]);
 
   const contextValue = {
     user,
     userProfile,
     role,
+    activeRole,
+    availableRoles,
+    setActiveRole,
     isLoading,
     isAuthenticated,
     authError,

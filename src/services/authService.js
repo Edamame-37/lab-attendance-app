@@ -9,6 +9,7 @@
 
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -110,6 +111,7 @@ export const registerUser = async ({
       nomorInduk: cleanNomorInduk,
       email: cleanEmail,
       role: 'praktikan',
+      roles: ['praktikan'],
       kelas: kelas.trim(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -122,9 +124,14 @@ export const registerUser = async ({
       profile: userProfile,
     };
   } catch (error) {
-    // Jika penyimpanan profil gagal, jangan biarkan akun
-    // yang tidak memiliki profil valid tetap aktif.
-    await signOut(auth);
+    // Rollback akun Auth yang baru dibuat agar tidak meninggalkan akun yatim
+    // ketika profil Firestore gagal disimpan.
+    try {
+      await deleteUser(user);
+    } catch (rollbackError) {
+      console.error('Gagal melakukan rollback akun registrasi:', rollbackError);
+      await signOut(auth);
+    }
     throw error;
   }
 };
@@ -176,9 +183,19 @@ export const getUserProfile = async (uid) => {
   const docSnap = await getDoc(userDocRef);
 
   if (docSnap.exists()) {
+    const profileData = docSnap.data();
+    const legacyRole = profileData.role;
+    const roles = Array.isArray(profileData.roles)
+      ? profileData.roles.filter((role) => ['praktikan', 'asisten'].includes(role))
+      : ['praktikan', 'asisten'].includes(legacyRole)
+        ? [legacyRole]
+        : [];
+
     return {
       uid,
-      ...docSnap.data(),
+      ...profileData,
+      role: roles[0] || null,
+      roles,
     };
   }
 
