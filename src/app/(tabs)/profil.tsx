@@ -1,34 +1,9 @@
-/**
- * @file src/app/(tabs)/profil.tsx
- * @description Layar Profil Pengguna dan Pengaturan Sistem (Pemrogram 3).
- *
- * Menerapkan desain 100% identik dengan trydesign.html (view-profil):
- * 1. Digital Student / Assistant ID Card (Avatar 52x52px, Nama, NIM aksen, Sub-line kelas)
- * 2. Statistik Kehadiran 2 Kolom (100% Tingkat Hadir & 2 Sesi Diselesaikan)
- * 3. Pengaturan & Sistem (Grouped Inset List):
- *    - Mode Tampilan (Dark Mode Switch: Obsidian Dark vs Warm Academic Stone)
- *    - Alih Peran Pengguna (Ganti sudut pandang Mahasiswa / Asisten)
- *    - Versi Aplikasi (v1.0.0 · Production Build · Badge Official)
- */
-
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Switch,
-  Modal,
-} from 'react-native';
+import React, { useMemo } from 'react';
+import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '@/context/AppContext';
-import { useAuth } from '@/context/AuthContext';
 import { ScreenContainer } from '@/components/ScreenContainer';
-import {
-  SectionHeader,
-  GroupedInsetList,
-  GroupedInsetItem,
-} from '@/components/common/GroupedInsetList';
+import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { radius, spacing } from '@/theme';
 
 export default function ProfilScreen(): React.JSX.Element {
@@ -64,95 +39,65 @@ export default function ProfilScreen(): React.JSX.Element {
     .map((kata) => kata[0].toUpperCase())
     .join('');
 
-  const sesiSelesaiCount = daftarSesi.filter(
-    (s) => s.status === 'SELESAI'
-  ).length;
-  const riwayatAktif = ambilRiwayatPraktikan(penggunaAktif.id);
+  const confirmLogout = (): void => {
+    Alert.alert('Keluar dari akun', 'Sesi login pada perangkat ini akan diakhiri.', [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Keluar', style: 'destructive', onPress: () => void logout() },
+    ]);
+  };
 
   return (
     <ScreenContainer>
-      {/* SECTION 1: DIGITAL STUDENT / ASSISTANT ID CARD */}
-      <View
-        style={[
-          styles.idCard,
-          {
-            backgroundColor: tema.surfaceRaised,
-            borderColor: tema.border,
-          },
-        ]}
-      >
-        <View style={styles.idCardRow}>
-          {/* Avatar Inisial Bulat */}
-          <View
-            style={[
-              styles.avatarCircle,
-              {
-                backgroundColor: tema.accentSurface,
-                borderColor: tema.border,
-              },
-            ]}
-          >
-            <Text style={[styles.avatarText, { color: tema.accentText }]}>
-              {inisial}
-            </Text>
-          </View>
-
-          {/* Rincian Identitas Digital */}
-          <View style={styles.idMeta}>
-            <Text
-              style={[styles.idName, { color: tema.textPrimary }]}
-              numberOfLines={1}
-            >
-              {penggunaAktif.nama}
-            </Text>
-            <Text style={[styles.idNumber, { color: tema.accent }]}>
-              {penggunaAktif.nomorInduk}
-            </Text>
-            <Text style={[styles.idSub, { color: tema.textSecondary }]}>
-              {peranAktif === 'asisten'
-                ? 'Asisten Laboratorium RPL · Koordinator'
-                : `Teknik Informatika · Kelas ${penggunaAktif.kelas || 'TI-3A'}`}
-            </Text>
-          </View>
+      <View style={[styles.profileCard, { backgroundColor: tema.surface, borderColor: tema.border }]}>
+        <View style={[styles.avatar, { backgroundColor: tema.accentSurface }]}>
+          <Text style={[styles.avatarText, { color: tema.accentText }]}>{initials}</Text>
         </View>
+        <Text style={[styles.name, { color: tema.textPrimary }]}>{userProfile?.nama || user?.displayName || 'Pengguna'}</Text>
+        <Text style={[styles.identifier, { color: tema.accent }]}>{userProfile?.nomorInduk || '-'}</Text>
+        <Text style={[styles.meta, { color: tema.textSecondary }]}>{user?.email || userProfile?.email || '-'}</Text>
+        <Text style={[styles.meta, { color: tema.textSecondary }]}>
+          {role === 'asisten' ? 'Asisten Laboratorium' : `Praktikan${userProfile?.kelas ? ` · ${userProfile.kelas}` : ''}`}
+        </Text>
       </View>
 
-      {/* SECTION 2: STATISTIK KEHADIRAN (UI-STATS-2COL) */}
-      <SectionHeader title="Statistik Kehadiran" />
-
-      <View style={styles.stats2Col}>
-        <View
-          style={[
-            styles.statCard,
-            {
-              backgroundColor: tema.surface,
-              borderColor: tema.border,
-            },
-          ]}
-        >
-          <Text style={[styles.statVal, { color: tema.textPrimary }]}>
-            100%
-          </Text>
-          <Text style={[styles.statLbl, { color: tema.textSecondary }]}>
-            Tingkat Hadir
-          </Text>
+      {availableRoles.length > 1 ? (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: tema.textPrimary }]}>Mode Akun</Text>
+          <View style={[styles.card, { backgroundColor: tema.surface, borderColor: tema.border }]}>
+            {availableRoles.map((availableRole) => {
+              const selected = role === availableRole;
+              return (
+                <TouchableOpacity
+                  key={availableRole}
+                  style={[styles.roleRow, selected && { backgroundColor: tema.accentSurface }]}
+                  onPress={() => void setActiveRole(availableRole)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                >
+                  <Ionicons name={availableRole === 'asisten' ? 'shield-checkmark-outline' : 'school-outline'} size={20} color={tema.accent} />
+                  <Text style={[styles.rowText, { color: tema.textPrimary }]}>
+                    {availableRole === 'asisten' ? 'Asisten Laboratorium' : 'Praktikan'}
+                  </Text>
+                  {selected ? <Ionicons name="checkmark-circle" size={20} color={tema.accent} /> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
+      ) : null}
 
-        <View
-          style={[
-            styles.statCard,
-            {
-              backgroundColor: tema.surface,
-              borderColor: tema.border,
-            },
-          ]}
-        >
-          <Text style={[styles.statVal, { color: tema.textPrimary }]}>
-            {sesiSelesaiCount || riwayatAktif.length || 2}
-          </Text>
-          <Text style={[styles.statLbl, { color: tema.textSecondary }]}>
-            Sesi Diselesaikan
-          </Text>
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: tema.textPrimary }]}>Pengaturan</Text>
+        <View style={[styles.card, { backgroundColor: tema.surface, borderColor: tema.border }]}>
+          <View style={styles.settingRow}>
+            <Ionicons name={modeTema === 'dark' ? 'moon-outline' : 'sunny-outline'} size={20} color={tema.accent} />
+            <Text style={[styles.rowText, { color: tema.textPrimary }]}>Mode Gelap</Text>
+            <Switch value={modeTema === 'dark'} onValueChange={(enabled) => setModeTema(enabled ? 'dark' : 'light')} />
+          </View>
+          <TouchableOpacity style={styles.settingRow} onPress={confirmLogout} accessibilityRole="button">
+            <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+            <Text style={[styles.rowText, { color: '#DC2626' }]}>Keluar</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -452,148 +397,17 @@ export default function ProfilScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  idCard: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  idCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  avatarCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  idMeta: {
-    flex: 1,
-    gap: 1,
-  },
-  idName: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  idNumber: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  idSub: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  stats2Col: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    padding: spacing.md,
-    gap: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  statVal: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    lineHeight: 30,
-  },
-  statLbl: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  itemIconSquircle: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-  },
-  badgeVersion: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-  },
-  badgeVersionText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.gutter,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    padding: spacing.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  modalTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  modalPeranDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: spacing.md,
-  },
-  roleChoiceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    marginBottom: spacing.sm,
-  },
-  roleChoiceMeta: {
-    flex: 1,
-    gap: 2,
-  },
-  roleChoiceTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  roleChoiceSub: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
+  profileCard: { borderWidth: 1, borderRadius: radius.xl, padding: spacing.xl, alignItems: 'center' },
+  avatar: { width: 60, height: 60, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
+  avatarText: { fontSize: 20, fontWeight: '800' },
+  name: { fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  identifier: { fontSize: 13, fontWeight: '700', marginTop: 4 },
+  meta: { fontSize: 12, marginTop: 3, textAlign: 'center' },
+  section: { gap: spacing.sm },
+  sectionTitle: { fontSize: 14, fontWeight: '800' },
+  card: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  roleRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, gap: spacing.md },
+  settingRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, gap: spacing.md },
+  rowText: { flex: 1, fontSize: 13, fontWeight: '600' },
+  version: { fontSize: 11, textAlign: 'center', marginTop: spacing.sm },
 });

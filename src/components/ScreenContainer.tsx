@@ -20,7 +20,7 @@ import {
   Platform,
   StatusBar as RNStatusBar,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useApp } from '@/context/AppContext';
 import { AppHeader } from '@/components/AppHeader';

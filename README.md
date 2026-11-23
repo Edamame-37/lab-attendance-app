@@ -105,6 +105,65 @@ Secara umum:
 
 Pastikan aturan keamanan yang digunakan sudah dipublikasikan melalui Firebase Console.
 
+Deploy Rules dan composite index dari repository:
+
+```bash
+npx firebase-tools deploy --only firestore:rules,firestore:indexes
+```
+
+### 2.4 Alur Laboratorium, Sesi, dan Presensi
+
+Laboratorium, sesi, dan presensi menggunakan sumber data Firestore yang sama. Asisten tidak dapat membuka sesi tanpa laboratorium aktif yang memiliki koordinat valid. Praktikan hanya dapat melakukan presensi pada sesi terbuka yang menunjuk laboratorium tersebut.
+
+```mermaid
+flowchart LR
+  A[Asisten membuat lab aktif] --> B[Asisten membuat sesi dan memilih lab]
+  B --> C[Asisten membuka sesi]
+  C --> D[Praktikan memilih sesi terbuka]
+  D --> E[Aplikasi membaca lokasi perangkat]
+  E --> F{Akurasi maksimal 50 m dan dalam radius?}
+  F -- Ya --> G[Presensi disimpan ke Firestore]
+  F -- Tidak --> H[Presensi ditolak dengan alasan validasi]
+```
+
+Urutan operasional:
+
+1. Akun asisten membuka **Kelola Lab** dan membuat laboratorium beserta latitude, longitude, dan radius.
+2. Asisten membuka **Kelola Sesi**, membuat sesi, lalu memilih laboratorium aktif.
+3. Asisten membuka sesi. Nama dan lokasi laboratorium selalu diambil dari referensi `labId`, bukan input bebas.
+4. Praktikan membuka satu menu **Presensi Lokasi**, memilih sesi terbuka, lalu memperbarui lokasi.
+5. Sistem memvalidasi role, identitas profil, akurasi GPS, radius, serta duplikasi sebelum menyimpan presensi.
+
+### 2.5 Role dan Identitas Akun
+
+Identitas nama, email, NIM/NIP, dan kelas selalu berasal dari dokumen pengguna Firebase yang sama. Perpindahan mode tidak lagi mengganti identitas menjadi data dummy.
+
+Contoh field role pada dokumen `users/{uid}`:
+
+```json
+{
+  "role": "praktikan",
+  "roles": ["praktikan", "asisten"]
+}
+```
+
+- Akun satu role menggunakan `roles: ["praktikan"]` atau `roles: ["asisten"]`.
+- Tombol ganti mode hanya muncul bila `roles` memuat kedua role.
+- Field `roles` harus diprovisikan oleh administrator tepercaya melalui Firebase Console atau backend administratif. Firestore Rules melarang pengguna menaikkan role miliknya sendiri.
+
+Untuk environment yang sudah memiliki profil lama, gunakan Application Default Credentials atau service account administratif, lalu jalankan migrasi dalam mode dry-run:
+
+```bash
+npm run migrate:user-roles
+npm run migrate:user-roles -- --apply
+```
+
+Perintah kedua melakukan perubahan dan hanya boleh dijalankan setelah hasil dry-run diperiksa. Audit relasi seluruh sesi dan laboratorium bersifat read-only:
+
+```bash
+npm run audit:session-labs
+```
+
 ---
 
 ## 3. Integrasi AI EDOM
@@ -199,22 +258,61 @@ Gunakan EAS Build untuk menghasilkan aplikasi standalone.
 1. Login ke akun Expo:
 
    ```bash
-   npx eas-cli login
+   npx eas-cli@latest login
    ```
 
 2. Inisialisasi konfigurasi EAS jika belum tersedia:
 
    ```bash
-   npx eas-cli build:configure
+   npx eas-cli@latest build:configure
    ```
 
 3. Build aplikasi Android menggunakan profil preview:
 
    ```bash
-   npx eas-cli build -p android --profile preview
+   npx eas-cli@latest build -p android --profile preview
    ```
 
 4. Setelah proses build selesai, unduh hasil build melalui tautan yang disediakan EAS.
+
+Karena konfigurasi native `expo-notifications` berubah, development client lama harus dibangun ulang satu kali:
+
+```bash
+npx eas-cli@latest build --profile development --platform android
+```
+
+Setelah APK development terbaru terpasang, perubahan JavaScript berikutnya cukup dijalankan melalui Metro tanpa build native ulang.
+
+---
+
+## 6. Menjalankan dan Memvalidasi Proyek
+
+Instal dependency dan jalankan development client:
+
+```bash
+npm install
+npm run start:dev
+```
+
+Gunakan tunnel hanya bila perangkat tidak dapat mengakses komputer melalui LAN:
+
+```bash
+npm run start:tunnel
+```
+
+Jika perubahan tidak terbaca, hentikan Metro, lalu jalankan satu kali dengan cache bersih:
+
+```bash
+npm run start:dev:clear
+```
+
+Quality gate lokal:
+
+```bash
+npm run validate
+npx expo-doctor
+npx expo install --check
+```
 
 ---
 

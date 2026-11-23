@@ -18,10 +18,11 @@ import { analyzeSentiment } from '../../services/aiService';
 
 export const LeaveRequestScreen = ({ navigation, route }) => {
   const { user, userProfile } = useAuth();
+  const requestedSessionId = route?.params?.session?.id || '';
 
   const [sessions, setSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(
-    route?.params?.session?.id || ''
+    requestedSessionId
   );
   const [reason, setReason] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(true);
@@ -41,12 +42,12 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
         setLoadingSessions(false);
 
         if (
-          route?.params?.session?.id &&
+          requestedSessionId &&
           activeSessions.some(
-            (item) => item.id === route.params.session.id
+            (item) => item.id === requestedSessionId
           )
         ) {
-          setSelectedSessionId(route.params.session.id);
+          setSelectedSessionId(requestedSessionId);
         }
       },
       (error) => {
@@ -61,7 +62,7 @@ export const LeaveRequestScreen = ({ navigation, route }) => {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [requestedSessionId]);
 
   // Mencari sesi yang dipilih
   const selectedSession = sessions.find(

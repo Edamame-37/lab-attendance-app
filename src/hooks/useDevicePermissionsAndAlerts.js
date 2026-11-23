@@ -63,7 +63,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
       });
 
       setError(null);
-    } catch (err) {
+    } catch (_err) {
       setCoordinates(null);
       setError('Lokasi gagal diperoleh. Pastikan GPS aktif.');
     }
@@ -98,7 +98,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
       }
 
       return isGranted;
-    } catch (err) {
+    } catch (_err) {
       setError('Gagal meminta izin lokasi.');
       return false;
     }
@@ -129,7 +129,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
       }
 
       return isGranted;
-    } catch (err) {
+    } catch (_err) {
       setNotificationError('Gagal meminta izin notifikasi.');
       return false;
     }
@@ -147,7 +147,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
         network.isConnected === true &&
         network.isInternetReachable !== false
       );
-    } catch (err) {
+    } catch (_err) {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
         setIsOnline(navigator.onLine);
       } else {
@@ -160,7 +160,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
       setNotificationPermission(
         permission.granted ? 'granted' : permission.canAskAgain === false ? 'blocked' : permission.status
       );
-    } catch (err) {
+    } catch (_err) {
       setNotificationError('Gagal memeriksa izin notifikasi.');
     }
 
@@ -169,7 +169,9 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
 
   // Memantau perubahan jaringan dan aplikasi kembali aktif.
   useEffect(() => {
-    refreshDeviceStatus();
+    const initialRefreshTimer = setTimeout(() => {
+      void refreshDeviceStatus();
+    }, 0);
 
     let unsubscribeNetwork = () => {};
     try {
@@ -179,7 +181,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
           state.isInternetReachable !== false
         );
       });
-    } catch (e) {}
+    } catch (_error) {}
 
     const appStateListener = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -188,6 +190,7 @@ export default function useDevicePermissionsAndAlerts({ watchLocation = false } 
     });
 
     return () => {
+      clearTimeout(initialRefreshTimer);
       unsubscribeNetwork();
       appStateListener.remove();
     };

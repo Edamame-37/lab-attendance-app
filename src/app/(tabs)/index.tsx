@@ -1,94 +1,89 @@
-/**
- * @file src/app/(tabs)/index.tsx
- * @description Layar Jadwal dan Detail Sesi Praktikum (Pemrogram 1).
- *
- * Menerapkan desain 100% identik dengan trydesign.html (view-jadwal):
- * - Hero Active Card dengan tata letak 3 blok:
- *   1. Judul Mata Kuliah & Sub-line bersih (Kelas TI-3A · Lab RPL 1)
- *   2. Baris waktu slot (08:00 – 10:30 WIB) & nama Asisten
- *   3. Tombol aksi tunggal adaptif (Buka/Tutup Sesi untuk Asisten, Isi Presensi / Bukti Tercatat untuk Praktikan)
- * - Section Jadwal Mendatang dalam Grouped Inset List dengan badge kelas.
- * - Section Selesai Dilaksanakan dalam Grouped Inset List dengan rasio kehadiran & badge kelas.
- */
-
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '@/context/AppContext';
-import { JadwalSesi } from '@/types';
+import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/ScreenContainer';
-import {
-  SectionHeader,
-  GroupedInsetList,
-  GroupedInsetItem,
-} from '@/components/common/GroupedInsetList';
-import { EmptyState } from '@/components/common/EmptyState';
-import { OpenSessionModal } from '@/features/asisten/OpenSessionModal';
-import { CloseSessionModal } from '@/features/asisten/CloseSessionModal';
+import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
+import { subscribeToSessions } from '@/services/firestoreService';
 import { radius, spacing } from '@/theme';
 
-export default function JadwalSesiScreen(): React.JSX.Element {
-  const router = useRouter();
-  const {
-    peranAktif,
-    penggunaAktif,
-    daftarSesi,
-    bukaSesi,
-    tutupSesi,
-    ambilPresensiPerSesi,
-    daftarPresensi,
-    tema,
-    modeTema,
-  } = useApp();
+type SessionDocument = {
+  id: string;
+  namaPraktikum?: string;
+  topikMateri?: string;
+  kelas?: string;
+  ruangLab?: string;
+  labId?: string;
+  hari?: string;
+  jamMulai?: string;
+  jamSelesai?: string;
+  status?: string;
+  statusSesi?: string;
+};
 
-  // State untuk modal alur asisten
-  const [selectedSesi, setSelectedSesi] = useState<JadwalSesi | null>(null);
-  const [modalBukaVisible, setModalBukaVisible] = useState<boolean>(false);
-  const [modalTutupVisible, setModalTutupVisible] = useState<boolean>(false);
+type ShortcutProps = {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+  primary?: boolean;
+  theme: any;
+};
 
-  // Sesi aktif / utama
-  const sesiAktif = daftarSesi.find((s) => s.status === 'DIBUKA');
-  const sesiUtama =
-    sesiAktif || daftarSesi.find((s) => s.status === 'DITUTUP') || daftarSesi[0];
-
-  // Sesi mendatang & selesai
-  const sesiMendatang = daftarSesi.filter(
-    (s) => s.status === 'DITUTUP' && s.id !== sesiUtama?.id
+function Shortcut({ label, icon, onPress, primary = false, theme }: ShortcutProps): React.JSX.Element {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.shortcut,
+        {
+          backgroundColor: primary ? theme.accent : theme.surface,
+          borderColor: primary ? theme.accent : theme.border,
+        },
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Ionicons name={icon} size={21} color={primary ? '#FFFFFF' : theme.accent} />
+      <Text style={[styles.shortcutText, { color: primary ? '#FFFFFF' : theme.textPrimary }]}>{label}</Text>
+    </TouchableOpacity>
   );
-  const sesiSelesai = daftarSesi.filter((s) => s.status === 'SELESAI');
+}
 
-  // Status presensi praktikan aktif
-  const presensiSaya = sesiUtama
-    ? daftarPresensi.find(
-        (p) =>
-          p.sesiId === sesiUtama.id && p.praktikanId === penggunaAktif.id
-      )
-    : null;
+export default function DashboardScreen(): React.JSX.Element {
+  const router = useRouter();
+  const { role } = useAuth();
+  const { tema } = useApp();
+  const [sessions, setSessions] = useState<SessionDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Handler modal
-  const handleBukaSesiTrigger = (sesi: JadwalSesi): void => {
-    setSelectedSesi(sesi);
-    setModalBukaVisible(true);
-  };
+  useEffect(() => {
+    const unsubscribe = subscribeToSessions(
+      (items: SessionDocument[]) => {
+        setSessions(items);
+        setLoading(false);
+        setError('');
+      },
+      (subscriptionError: Error) => {
+        setError(subscriptionError.message || 'Sesi praktikum tidak dapat dimuat.');
+        setLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, []);
 
-  const handleKonfirmasiBuka = (
-    sesiId: string,
-    ruangLab: string,
-    _catatanPembuka?: string
-  ): void => {
-    bukaSesi(sesiId, ruangLab);
-    setSelectedSesi(null);
-  };
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((first, second) => {
+      const firstOpen = first.status === 'open' || first.statusSesi === 'DIBUKA';
+      const secondOpen = second.status === 'open' || second.statusSesi === 'DIBUKA';
+      return Number(secondOpen) - Number(firstOpen);
+    }),
+    [sessions]
+  );
 
-  const handleTutupSesiTrigger = (sesi: JadwalSesi): void => {
-    setSelectedSesi(sesi);
-    setModalTutupVisible(true);
-  };
-
-  const handleKonfirmasiTutup = (sesiId: string): void => {
-    tutupSesi(sesiId);
-    setSelectedSesi(null);
+  const openAttendance = (sessionId?: string): void => {
+    router.push({ pathname: '/presensi-lokasi', params: sessionId ? { sessionId } : {} });
   };
 
   return (
@@ -544,111 +539,22 @@ export default function JadwalSesiScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  sectionWrap: {
-    gap: 4,
-  },
-  sectionDateMeta: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  heroCard: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: 18,
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  cardHeadingBlock: {
-    gap: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-    lineHeight: 21,
-  },
-  cardSubline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  sublineText: {
-    fontSize: 12,
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  sublineSep: {
-    fontSize: 12,
-  },
-  cardMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 2,
-  },
-  timeSlot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  assistantName: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  actionCluster: {
-    paddingTop: 2,
-  },
-  uiActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 16,
-    borderRadius: radius.md,
-    gap: 8,
-    minHeight: 44,
-  },
-  btnDangerUi: {
-    backgroundColor: '#DC2626',
-  },
-  btnSuccessUi: {
-    backgroundColor: '#059669',
-  },
-  btnActionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  uiReceiptBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    gap: 8,
-  },
-  receiptText: {
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-  classTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-  },
-  classTagText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  title: { fontSize: 20, fontWeight: '800' },
+  subtitle: { fontSize: 12, lineHeight: 18, marginTop: 3 },
+  shortcutGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  shortcut: { width: '48%', minHeight: 86, borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, justifyContent: 'space-between' },
+  shortcutText: { fontSize: 13, fontWeight: '700' },
+  sectionTitle: { fontSize: 15, fontWeight: '800', marginTop: spacing.sm },
+  loading: { marginVertical: spacing.xl },
+  error: { color: '#991B1B', backgroundColor: '#FEE2E2', borderRadius: radius.md, padding: spacing.md, fontSize: 12 },
+  emptyCard: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center' },
+  emptyTitle: { fontSize: 14, fontWeight: '800', marginTop: spacing.sm },
+  emptyText: { textAlign: 'center', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  sessionCard: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, gap: 6 },
+  sessionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  sessionTitleBlock: { flex: 1 },
+  sessionName: { fontSize: 14, fontWeight: '800' },
+  sessionTopic: { fontSize: 12, marginTop: 2 },
+  status: { fontSize: 10, fontWeight: '800' },
+  meta: { fontSize: 11, lineHeight: 17 },
 });

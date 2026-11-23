@@ -9,12 +9,15 @@
 
 import React from 'react';
 import { ScreenContainer } from '@/components/ScreenContainer';
+import { RoleRouteGuard } from '@/components/navigation/RoleRouteGuard';
 import { RekapPresensiView } from '@/features/rekap/RekapPresensiView';
 
 export default function RekapScreen(): React.JSX.Element {
   return (
-    <ScreenContainer>
-      <RekapPresensiView />
-    </ScreenContainer>
+    <RoleRouteGuard allowedRole="asisten">
+      <ScreenContainer>
+        <RekapPresensiView />
+      </ScreenContainer>
+    </RoleRouteGuard>
   );
 }

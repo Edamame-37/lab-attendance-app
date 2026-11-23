@@ -1,6 +1,6 @@
 {
   "name": "ppk-mobile-praktikum",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
@@ -18,7 +18,7 @@
     "expo-router": "~58.0.32",
     "expo-status-bar": "~58.0.5",
     "expo-updates": "~58.0.22",
-    "firebase": "^13.2.0",
+    "firebase": "^13.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
@@ -28,20 +28,34 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "^0.88.1",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "30.0.0",
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "firebase-admin": "^14.5.1",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.15",
     "typescript": "~6.0.3",
     "ws": "^8.23.0"
   },
   "scripts": {
-    "dev": "expo start --web -c",
-    "start": "expo start -c",
-    "start:dev": "expo start --dev-client -c",
+    "dev": "expo start --web",
+    "dev:clear": "expo start --web --clear",
+    "start": "expo start",
+    "start:clear": "expo start --clear",
+    "start:dev": "expo start --dev-client",
+    "start:dev:clear": "expo start --dev-client --clear",
+    "start:tunnel": "expo start --dev-client --clear --tunnel",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web -c",
-    "lint": "expo lint"
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "test": "jest --runInBand",
+    "validate": "npm run lint && npx tsc --noEmit && npm test",
+    "audit:session-labs": "node scripts/audit-session-labs.mjs",
+    "migrate:user-roles": "node scripts/migrate-user-roles.mjs"
   },
   "private": true
 }

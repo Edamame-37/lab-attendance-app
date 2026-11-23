@@ -38,12 +38,10 @@ export const LeaveStatusScreen = () => {
   const { user } = useAuth();
 
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(user?.uid));
 
   useEffect(() => {
     if (!user?.uid) {
-      setRequests([]);
-      setLoading(false);
       return;
     }
 

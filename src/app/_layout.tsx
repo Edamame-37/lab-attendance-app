@@ -93,24 +93,11 @@ function RootNavigator(): React.JSX.Element {
           }}
         />
 
-                <Stack.Screen
-          name="fitur-sprint2"
-          options={{
-            title: 'Fitur Sprint 2',
-          }}
-        />
-
         <Stack.Screen
           name="sesi"
           options={{
             title: 'Kelola Sesi Praktikum',
-          }}
-        />
-
-        <Stack.Screen
-          name="presensi-firestore"
-          options={{
-            title: 'Presensi Praktikum',
+            headerShown: false,
           }}
         />
 
@@ -118,6 +105,7 @@ function RootNavigator(): React.JSX.Element {
           name="presensi-lokasi"
           options={{
             title: 'Presensi Berbasis Lokasi',
+            headerShown: false,
           }}
         />
 
@@ -125,6 +113,15 @@ function RootNavigator(): React.JSX.Element {
           name="lokasi-lab"
           options={{
             title: 'Lokasi Laboratorium',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="peta-lab"
+          options={{
+            title: 'Peta Laboratorium',
+            headerShown: false,
           }}
         />
 
@@ -146,13 +143,6 @@ function RootNavigator(): React.JSX.Element {
           name="review-izin"
           options={{
             title: 'Review Pengajuan Izin',
-          }}
-        />
-
-        <Stack.Screen
-          name="test-farrel"
-          options={{
-            title: 'Testing Modul Farrel',
           }}
         />
 

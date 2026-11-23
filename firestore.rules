@@ -19,7 +19,17 @@ service cloud.firestore {
     }
 
     function isAsisten() {
-      return userExists() && getUserData().role == 'asisten';
+      return userExists() && (
+        getUserData().get('role', '') == 'asisten' ||
+        (getUserData().get('roles', []) is list && 'asisten' in getUserData().get('roles', []))
+      );
+    }
+
+    function isPraktikan() {
+      return userExists() && (
+        getUserData().get('role', '') == 'praktikan' ||
+        (getUserData().get('roles', []) is list && 'praktikan' in getUserData().get('roles', []))
+      );
     }
 
     function labExistsAndActive(labId) {
@@ -120,6 +130,7 @@ service cloud.firestore {
         attendance.location is latlng &&
         attendance.locationAccuracyMeters is number &&
         attendance.locationAccuracyMeters >= 0 &&
+        attendance.locationAccuracyMeters <= 50 &&
         attendance.distanceMeters is number &&
         attendance.locationCapturedAt is timestamp &&
         attendance.timestamp == request.time &&
@@ -129,6 +140,9 @@ service cloud.firestore {
         attendance.studentName is string &&
         attendance.studentNim is string &&
         attendance.studentClass is string &&
+        attendance.studentName == getUserData().nama &&
+        attendance.studentNim == getUserData().nomorInduk &&
+        attendance.studentClass == getUserData().get('kelas', '') &&
         attendance.namaPraktikum is string &&
         attendance.topikMateri is string &&
         attendance.catatan is string &&
@@ -149,11 +163,13 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
         request.resource.data.uid == userId &&
         request.resource.data.email == request.auth.token.email &&
-        request.resource.data.role == 'praktikan';
+        request.resource.data.role == 'praktikan' &&
+        request.resource.data.get('roles', ['praktikan']) == ['praktikan'];
 
       allow update: if isOwner(userId) &&
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.role == resource.data.role &&
+        request.resource.data.get('roles', []) == resource.data.get('roles', []) &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['nama', 'nomorInduk', 'kelas', 'updatedAt']);
 
@@ -189,7 +205,17 @@ service cloud.firestore {
     match /sessions/{sessionId} {
       allow read: if isAuthenticated();
 
-      allow create, update: if isAsisten() &&
+      allow create: if isAsisten() &&
+        request.resource.data.asistenId == request.auth.uid &&
+        request.resource.data.namaPraktikum is string &&
+        request.resource.data.kelas is string &&
+        request.resource.data.status == 'closed' &&
+        request.resource.data.statusSesi == 'DITUTUP' &&
+        request.resource.data.labId is string &&
+        labExistsAndActive(request.resource.data.labId);
+
+      allow update: if isAsisten() &&
+        request.resource.data.asistenId == resource.data.asistenId &&
         request.resource.data.labId is string &&
         labExistsAndActive(request.resource.data.labId);
 
@@ -203,7 +229,7 @@ service cloud.firestore {
         isAsisten()
       );
 
-      allow create: if isAuthenticated() && validAttendanceCreate(attendanceId);
+      allow create: if isAuthenticated() && isPraktikan() && validAttendanceCreate(attendanceId);
 
       allow update, delete: if isAsisten();
     }
