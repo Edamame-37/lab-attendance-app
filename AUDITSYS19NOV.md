@@ -849,3 +849,98 @@ Temuan berikut tidak berubah: dual dummy/Firestore data source, role simulator p
 
 Kesimpulan post-merge: hasil merge stabil pada level dependency compatibility, Expo Doctor, typecheck, web export, dan development tunnel. Perbaikan refresh lokasi bekerja sesuai tujuan: perangkat dapat memperoleh lokasi meskipun sesi/lab belum tersedia, sementara konfirmasi presensi tetap aman karena membutuhkan sesi terbuka dan konfigurasi lab. Sistem belum layak dinyatakan production-ready karena lima temuan High masih terbuka, lint gagal, test automation tidak tersedia, push notification belum end-to-end, serta deployment/device behavior belum divalidasi. Merge juga menyisakan masalah UX duplicate header/safe-area yang terlihat pada halaman standalone dan satu warning lint baru.
 
+---
+
+## 15. Remediasi Menyeluruh 21 November 2026
+
+Bagian ini mencatat kondisi repository setelah perbaikan berdasarkan audit post-merge dan laporan pengujian pengguna. Status pada bagian 13-14 merupakan snapshot historis sebelum remediasi ini.
+
+### 15.1 Ringkasan Perbaikan
+
+| Area | Status | Implementasi |
+| :--- | :--- | :--- |
+| Duplikasi Presensi Firestore/Radius | Selesai | Route dan tombol `presensi-firestore` dihapus. Praktikan memiliki satu alur **Presensi Lokasi** berbasis Firestore. |
+| Kelola Lab tidak dapat diakses | Selesai | Dashboard asisten menyediakan shortcut **Kelola Lab**; route guard memakai active role yang telah diotorisasi. |
+| Sesi asisten tidak terhubung ke presensi praktikan | Selesai pada kode | Dashboard, daftar sesi, pembukaan sesi, dan presensi membaca koleksi Firestore yang sama. Sesi wajib memiliki `labId` menuju laboratorium aktif. |
+| Nama berubah menjadi data dummy | Selesai | Header dan profil memakai identitas Firebase yang sama pada seluruh mode. Pergantian mode hanya mengubah active role, bukan pengguna. |
+| Role simulator pada production path | Selesai | Pemilihan role dummy dihapus dari navigasi utama; tombol mode hanya tersedia bagi akun dengan lebih dari satu role resmi. |
+| Duplicate header | Selesai | Header Stack dimatikan pada screen yang sudah memiliki top bar internal. |
+| Akun Auth yatim | Diperbaiki | Registrasi menghapus akun Firebase Auth baru bila pembuatan profil Firestore gagal. |
+| Validasi presensi | Diperkuat | Rules memeriksa role praktikan, identitas profil canonical, dan akurasi maksimum 50 meter; client menolak GPS tanpa nilai akurasi valid. |
+| Deaktivasi lab | Diperkuat | Lab tidak dapat dinonaktifkan selama masih dipakai sesi terbuka. |
+| Firestore index | Selesai | `firestore.indexes.json` ditambahkan dan direferensikan oleh `firebase.json`. |
+| Migrasi dan audit data | Selesai | Script dry-run/apply untuk normalisasi role dan script read-only untuk audit relasi sesi-lab ditambahkan. |
+| Route test/legacy | Selesai | Route uji, route duplikat, serta komponen dummy yang tidak terpakai dikeluarkan dari production bundle. |
+| Rekap masih memakai data dummy | Selesai | Tab Rekap dibatasi untuk asisten dan memakai listener sesi serta presensi Firestore real-time. |
+| Lint dan test automation | Selesai | Error lint diselesaikan; Jest SDK 58 dikonfigurasi dengan 6 unit test awal. |
+| Android notification channel | Selesai | Channel `praktikum` dan config plugin `expo-notifications` ditambahkan. Development client perlu dibangun ulang. |
+
+### 15.2 Model Role Setelah Remediasi
+
+`AuthContext` menjadi sumber kebenaran tunggal untuk pengguna, profil, daftar role resmi, dan active role. Dokumen lama dengan field `role` tetap dapat dibaca. Field `roles` menyediakan dukungan multi-role tanpa membuat pengguna dummy.
+
+```mermaid
+flowchart TD
+  A[Firebase Auth UID] --> B[users/UID]
+  B --> C[Identitas canonical]
+  B --> D[roles yang diizinkan]
+  D --> E[activeRole lokal]
+  E --> F{Role aktif}
+  F -- asisten --> G[Kelola Lab, Sesi, Review Izin]
+  F -- praktikan --> H[Presensi Lokasi, Ajukan Izin]
+```
+
+Firestore Rules mencegah pengguna menambahkan role sendiri. Provisioning asisten atau akun dual-role harus dilakukan melalui jalur administratif tepercaya.
+
+### 15.3 Invariant Lab-Sesi-Presensi
+
+1. Sesi baru wajib menunjuk `labId` yang ada dan aktif.
+2. Pembukaan sesi membaca kembali dokumen lab dan menyalin nama lab canonical.
+3. Lab yang dipakai sesi terbuka tidak dapat dinonaktifkan.
+4. Praktikan membaca sesi terbuka yang sama dan presensi menggunakan `session.labId` yang sama.
+5. Lokasi tanpa accuracy valid atau accuracy di atas 50 meter ditolak.
+6. Rules memverifikasi nama, NIM, dan kelas terhadap profil pengguna sebelum menerima presensi.
+
+### 15.4 Hasil Validasi Remediasi
+
+| Pemeriksaan | Hasil | Ringkasan |
+| :--- | :--- | :--- |
+| `npx expo install --check` | Lulus | Dependencies dinyatakan up to date untuk Expo SDK 58. |
+| `npx expo-doctor` | Lulus | 20/20 checks passed. |
+| `npx expo lint --no-cache` | Lulus | 0 error dan 0 warning. |
+| `npx tsc --noEmit` | Lulus | Tidak ada error TypeScript. |
+| `npm test` | Lulus | 3 suite, 6 test, 0 kegagalan. |
+| Production web export | Lulus | Static export final menghasilkan 17 route, 73 file, total 7.802.376 byte. |
+| Development tunnel | Lulus | Metro membuat QR, custom scheme, dan URL `on.expo.app` tanpa error WebSocket. |
+| `npm audit --omit=dev` | Belum bersih | 8 advisory pada graph produksi: 5 high dan 3 moderate; tidak ada critical. Saran otomatis meminta downgrade Expo/Firebase yang tidak kompatibel dengan SDK 58. |
+| EAS native build | Belum diuji | Config plugin notifikasi memerlukan development build baru. Build cloud tidak dijalankan pada audit lokal. |
+| Perangkat fisik | Belum diuji | GPS/radius, notifikasi native, peta, dan alur dua akun masih perlu acceptance test pada device. |
+| Firestore deployment | Belum dijalankan | Rules dan indexes sudah disiapkan di repository tetapi harus dideploy ke project Firebase target. |
+
+### 15.5 Batasan yang Masih Terbuka
+
+- Push notification saat ini baru memiliki permission, token retrieval, channel Android, dan local notification. Remote delivery ke perangkat target masih memerlukan penyimpanan token serta trusted backend sender.
+- Firestore Rules dan composite indexes tidak aktif di environment sampai perintah deployment dijalankan.
+- Perubahan config plugin notifikasi tidak masuk ke development client lama melalui Metro; APK development harus dibangun dan dipasang ulang satu kali.
+- Advisory transitive Expo/Firebase belum mempunyai jalur perbaikan kompatibel yang aman pada dependency graph saat ini. Jangan menjalankan `npm audit fix --force` karena rekomendasinya menurunkan versi utama.
+- Validasi keamanan GPS di client/Rules mengurangi input buruk, tetapi tidak dapat menjamin perangkat bebas dari location spoofing. Kebijakan perangkat dan pemeriksaan server diperlukan bila threat model menuntut anti-spoofing kuat.
+
+### 15.6 Langkah Aktivasi Environment
+
+```bash
+npx firebase-tools deploy --only firestore:rules,firestore:indexes
+npx eas-cli@latest build --profile development --platform android
+npm run validate
+npm run start:tunnel
+```
+
+Acceptance test minimum menggunakan dua akun nyata:
+
+1. Provision akun asisten dengan `roles: ["asisten"]` dan akun praktikan dengan `roles: ["praktikan"]`.
+2. Asisten membuat lab, membuat sesi dengan memilih lab tersebut, lalu membuka sesi.
+3. Praktikan memastikan sesi muncul pada dashboard dan Presensi Lokasi.
+4. Uji presensi di dalam radius, di luar radius, GPS accuracy di atas 50 meter, dan submit duplikat.
+5. Tutup sesi dan pastikan praktikan tidak dapat melakukan presensi baru.
+
+Kesimpulan remediasi: empat masalah utama yang dilaporkan pengguna telah diselesaikan pada application flow dan sumber data. Static quality gate, unit test, web export, dan tunnel lulus. Status production-ready tetap bergantung pada deployment Rules/indexes, rebuild development client, acceptance test perangkat fisik, penyelesaian remote push backend, serta mitigasi advisory dependency yang kompatibel.
+
