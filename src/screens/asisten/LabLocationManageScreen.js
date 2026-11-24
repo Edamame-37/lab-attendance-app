@@ -170,7 +170,7 @@ export default function LabLocationManageScreen() {
         </TouchableOpacity>
         <View style={styles.topBarText}>
           <Text style={[styles.pageTitle, { color: tema.textPrimary }]}>Lokasi Laboratorium</Text>
-          <Text style={[styles.pageSubtitle, { color: tema.textSecondary }]}>SRS-FT-11 · Koordinat dan radius</Text>
+          <Text style={[styles.pageSubtitle, { color: tema.textSecondary }]}>Kelola data dan lokasi laboratorium</Text>
         </View>
       </View>
 
