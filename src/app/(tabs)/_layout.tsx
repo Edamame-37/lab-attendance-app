@@ -12,12 +12,15 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout(): React.JSX.Element {
   const { tema } = useApp();
   const { role } = useAuth();
+  const insets = useSafeAreaInsets();
+  const bottomSafeArea = Math.max(0, insets.bottom);
 
   return (
     <Tabs
@@ -25,12 +28,13 @@ export default function TabLayout(): React.JSX.Element {
         headerShown: false,
         tabBarActiveTintColor: tema.accent,
         tabBarInactiveTintColor: tema.textMuted,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: tema.tabBar,
           borderTopColor: tema.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 6,
+          height: 60 + bottomSafeArea,
+          paddingBottom: Math.max(6, bottomSafeArea),
           paddingTop: 6,
           maxWidth: 420,
           width: '100%',
