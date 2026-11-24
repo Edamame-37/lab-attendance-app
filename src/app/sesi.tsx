@@ -34,10 +34,7 @@ import { subscribeToLabs } from '@/services/labService';
 export default function SesiScreen(): React.JSX.Element {
   const router = useRouter();
   const { tema } = useApp();
-  const { userProfile, role: authRole } = useAuth();
-
-  // Tampilan mengikuti role canonical akun. Switcher simulasi tidak digunakan.
-  const activeRoleView: 'asisten' | 'praktikan' = authRole === 'asisten' ? 'asisten' : 'praktikan';
+  const { userProfile } = useAuth();
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
 
@@ -272,56 +269,14 @@ export default function SesiScreen(): React.JSX.Element {
 
           <TouchableOpacity
             style={[styles.presensiLinkBtn, { backgroundColor: tema.accentSurface || '#ECFDF5' }]}
-            onPress={() =>
-              router.push(authRole === 'asisten' ? '/lokasi-lab' as any : '/presensi-lokasi' as any)
-            }
+            onPress={() => router.push('/lokasi-lab' as any)}
           >
-            <Ionicons name={authRole === 'asisten' ? 'location-outline' : 'checkbox-outline'} size={16} color={tema.accent} />
+            <Ionicons name="location-outline" size={16} color={tema.accent} />
             <Text style={[styles.presensiLinkText, { color: tema.accent }]}>
-              {authRole === 'asisten' ? 'Lokasi Lab' : 'Presensi'}
+              Lokasi Lab
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Role simulator lama dinonaktifkan; akses mengikuti profil Firebase. */}
-        {false && <View style={[styles.roleBar, { backgroundColor: tema.surfaceRaised, borderColor: tema.borderSubtle }]}>
-          <Text style={[styles.roleBarLabel, { color: tema.textSecondary }]}>Mode Tampilan:</Text>
-          <View style={styles.roleTabs}>
-            <TouchableOpacity
-              style={[
-                styles.roleTabItem,
-                activeRoleView === 'asisten' && [styles.roleTabItemActive, { backgroundColor: tema.accent }],
-              ]}
-              disabled
-            >
-              <Text
-                style={[
-                  styles.roleTabText,
-                  { color: activeRoleView === 'asisten' ? '#FFFFFF' : tema.textSecondary },
-                ]}
-              >
-                🧑‍🏫 Asisten (CRUD & Kontrol)
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.roleTabItem,
-                activeRoleView === 'praktikan' && [styles.roleTabItemActive, { backgroundColor: tema.accent }],
-              ]}
-              disabled
-            >
-              <Text
-                style={[
-                  styles.roleTabText,
-                  { color: activeRoleView === 'praktikan' ? '#FFFFFF' : tema.textSecondary },
-                ]}
-              >
-                👨‍🎓 Praktikan (Lihat Sesi)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>}
 
         <ScrollView
           style={styles.scrollView}
@@ -343,8 +298,7 @@ export default function SesiScreen(): React.JSX.Element {
           {/* =========================================================================
               VIEW KHUSUS ASISTEN (SRS-FT-02 & SRS-FT-04)
               ========================================================================= */}
-          {activeRoleView === 'asisten' && (
-            <View>
+          <View>
               {/* Action Bar Asisten */}
               <View style={styles.asistenActionBar}>
                 <View>
@@ -550,127 +504,6 @@ export default function SesiScreen(): React.JSX.Element {
                 })
               )}
             </View>
-          )}
-
-          {/* =========================================================================
-              VIEW KHUSUS PRAKTIKAN (SRS-FT-02 & SRS-FT-04)
-              ========================================================================= */}
-          {activeRoleView === 'praktikan' && (
-            <View>
-              <View style={[styles.mhsHeaderCard, { backgroundColor: tema.surface, borderColor: tema.border }]}>
-                <Text style={[styles.mhsLabel, { color: tema.textSecondary }]}>Informasi Praktikan</Text>
-                <Text style={[styles.mhsName, { color: tema.textPrimary }]}>
-                  {userProfile?.nama || 'Mahasiswa Praktikan'}
-                </Text>
-                <Text style={[styles.mhsMeta, { color: tema.textMuted }]}>
-                  NIM: {userProfile?.nomorInduk || '21120122140001'} • Kelas: {userProfile?.kelas || 'TI-3A'}
-                </Text>
-              </View>
-
-              <Text style={[styles.sectionHeading, { color: tema.textPrimary, marginTop: 16 }]}>
-                Jadwal & Sesi Praktikum Tersedia
-              </Text>
-              <Text style={[styles.sectionSub, { color: tema.textSecondary, marginBottom: 12 }]}>
-                Data sinkron secara real-time dari Cloud Firestore
-              </Text>
-
-              {loading ? (
-                <View style={styles.loadingBox}>
-                  <ActivityIndicator size="large" color={tema.accent} />
-                  <Text style={[styles.loadingText, { color: tema.textMuted }]}>
-                    Memuat informasi sesi dari Firestore...
-                  </Text>
-                </View>
-              ) : sessions.length === 0 ? (
-                <View style={[styles.emptyBox, { backgroundColor: tema.surface, borderColor: tema.border }]}>
-                  <Text style={[styles.emptyTitle, { color: tema.textPrimary }]}>
-                    Belum Ada Sesi Praktikum
-                  </Text>
-                  <Text style={[styles.emptyDesc, { color: tema.textSecondary }]}>
-                    Asisten belum menambahkan jadwal sesi praktikum.
-                  </Text>
-                </View>
-              ) : (
-                sessions.map((sesi) => {
-                  const isOpen = sesi.status === 'open' || sesi.statusSesi === 'DIBUKA';
-
-                  return (
-                    <View
-                      key={sesi.id}
-                      style={[
-                        styles.sessionCard,
-                        {
-                          backgroundColor: tema.surface,
-                          borderColor: isOpen ? (tema.statusHadir || '#16A34A') : tema.border,
-                          borderWidth: isOpen ? 2 : 1,
-                        },
-                      ]}
-                    >
-                      <View style={styles.cardHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.namaPraktikum, { color: tema.textPrimary }]}>
-                            {sesi.namaPraktikum}
-                          </Text>
-                          <Text style={[styles.topikText, { color: tema.textSecondary }]}>
-                            Topik: {sesi.topikMateri || '-'}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.statusPill,
-                            { backgroundColor: isOpen ? tema.statusHadirBg || '#DCFCE7' : tema.surfaceRaised },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.statusPillText,
-                              { color: isOpen ? tema.statusHadir || '#16A34A' : tema.textMuted },
-                            ]}
-                          >
-                            {isOpen ? 'DIBUKA' : 'DITUTUP'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.metaText, { color: tema.textMuted }]}>
-                          Kelas {sesi.kelas} • Ruang {sesi.ruangLab}
-                        </Text>
-                        <Text style={[styles.metaText, { color: tema.textMuted }]}>
-                          {sesi.hari}, {sesi.jamMulai} - {sesi.jamSelesai} WIB
-                        </Text>
-                      </View>
-
-                      {sesi.catatanPembuka ? (
-                        <View style={[styles.catatanBox, { backgroundColor: tema.accentSurface || '#ECFDF5' }]}>
-                          <Text style={[styles.catatanText, { color: tema.accent }]}>
-                            📢 Asisten: &quot;{sesi.catatanPembuka}&quot;
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      {/* Tombol Tindakan Praktikan */}
-                      {isOpen ? (
-                        <TouchableOpacity
-                          style={[styles.btnGoPresensi, { backgroundColor: tema.accent }]}
-                          onPress={() => router.push(`/presensi-lokasi?sessionId=${sesi.id}` as any)}
-                        >
-                          <Ionicons name="checkbox-outline" size={16} color="#FFFFFF" />
-                          <Text style={styles.btnGoPresensiText}>Isi Presensi Sesi Ini Sekarang ➔</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={[styles.closedNotice, { backgroundColor: tema.surfaceRaised }]}>
-                          <Text style={[styles.closedNoticeText, { color: tema.textMuted }]}>
-                            Sesi ini belum dibuka atau telah selesai.
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          )}
         </ScrollView>
 
         {/* MODAL BUAT SESI BARU (ASISTEN - SRS-FT-02) */}

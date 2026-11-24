@@ -1,6 +1,5 @@
 import {
   collection,
-  addDoc,
   doc,
   query,
   where,
@@ -8,11 +7,33 @@ import {
   onSnapshot,
   serverTimestamp,
   runTransaction,
+  setDoc,
 } from 'firebase/firestore';
 
 import { db } from '../config/firebase';
 
 const COLLECTION_NAME = 'leave_requests';
+
+const getCreatedAtMillis = (createdAt) => {
+  if (typeof createdAt?.toMillis === 'function') {
+    return createdAt.toMillis();
+  }
+
+  if (typeof createdAt?.seconds === 'number') {
+    return createdAt.seconds * 1000;
+  }
+
+  const parsedTimestamp = Date.parse(createdAt);
+  return Number.isFinite(parsedTimestamp) ? parsedTimestamp : 0;
+};
+
+export const sortLeaveRequestsByCreatedAt = (requests = []) => {
+  return [...requests].sort(
+    (firstRequest, secondRequest) =>
+      getCreatedAtMillis(secondRequest.createdAt) -
+      getCreatedAtMillis(firstRequest.createdAt)
+  );
+};
 
 // Membuat pengajuan izin baru dari Praktikan
 export const submitLeaveRequest = async (payload) => {
@@ -28,8 +49,10 @@ export const submitLeaveRequest = async (payload) => {
   }
 
   try {
-    const docRef = await addDoc(
-      collection(db, COLLECTION_NAME),
+    const requestId = `${payload.sessionId}_${payload.studentId}`;
+    const docRef = doc(db, COLLECTION_NAME, requestId);
+    await setDoc(
+      docRef,
       {
         studentId: payload.studentId,
         studentName: payload.studentName,
@@ -46,6 +69,7 @@ export const submitLeaveRequest = async (payload) => {
 
         status: 'pending',
         reviewedBy: null,
+        reviewedByUid: null,
         reviewedAt: null,
         createdAt: serverTimestamp(),
       }
@@ -53,7 +77,7 @@ export const submitLeaveRequest = async (payload) => {
 
     return {
       success: true,
-      id: docRef.id,
+      id: requestId,
     };
   } catch (error) {
     console.error(
@@ -78,17 +102,18 @@ export const subscribeStudentLeaveRequests = (
 
   const q = query(
     collection(db, COLLECTION_NAME),
-    where('studentId', '==', studentId),
-    orderBy('createdAt', 'desc')
+    where('studentId', '==', studentId)
   );
 
   return onSnapshot(
     q,
     (snapshot) => {
-      const items = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
+      const items = sortLeaveRequestsByCreatedAt(
+        snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }))
+      );
 
       onUpdate(items);
     },
@@ -138,7 +163,8 @@ export const subscribeAllLeaveRequests = (
 export const reviewLeaveRequest = async (
   requestId,
   decision,
-  assistantName
+  assistantName,
+  assistantUid
 ) => {
   if (!requestId) {
     throw new Error('ID pengajuan tidak tersedia.');
@@ -152,6 +178,10 @@ export const reviewLeaveRequest = async (
 
   if (!reviewer) {
     throw new Error('Nama Asisten tidak tersedia.');
+  }
+
+  if (!assistantUid) {
+    throw new Error('UID Asisten tidak tersedia.');
   }
 
   try {
@@ -179,6 +209,7 @@ export const reviewLeaveRequest = async (
       transaction.update(requestRef, {
         status: decision,
         reviewedBy: reviewer,
+        reviewedByUid: assistantUid,
         reviewedAt: serverTimestamp(),
       });
     });

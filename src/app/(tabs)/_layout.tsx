@@ -12,12 +12,15 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout(): React.JSX.Element {
   const { tema } = useApp();
   const { role } = useAuth();
+  const insets = useSafeAreaInsets();
+  const bottomSafeArea = Math.max(0, insets.bottom);
 
   return (
     <Tabs
@@ -25,12 +28,13 @@ export default function TabLayout(): React.JSX.Element {
         headerShown: false,
         tabBarActiveTintColor: tema.accent,
         tabBarInactiveTintColor: tema.textMuted,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: tema.tabBar,
           borderTopColor: tema.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 6,
+          height: 60 + bottomSafeArea,
+          paddingBottom: Math.max(6, bottomSafeArea),
           paddingTop: 6,
           maxWidth: 420,
           width: '100%',
@@ -57,32 +61,34 @@ export default function TabLayout(): React.JSX.Element {
         }}
       />
 
-      {/* Tab 2: Presensi dengan Red Dot Badge 7px persis trydesign.html */}
-      <Tabs.Screen
-        name="presensi"
-        options={{
-          title: 'Presensi',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'checkbox' : 'checkbox-outline'} size={20} color={color as string} />
-          ),
-        }}
-      />
+      <Tabs.Protected guard={role === 'praktikan'}>
+        <Tabs.Screen
+          name="presensi"
+          options={{
+            title: 'Presensi',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'checkbox' : 'checkbox-outline'} size={20} color={color as string} />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
       {/* Tab 3: Rekapitulasi */}
-      <Tabs.Screen
-        name="rekap"
-        options={{
-          title: 'Rekap',
-          href: role === 'asisten' ? '/rekap' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'stats-chart' : 'stats-chart-outline'}
-              size={20}
-              color={color as string}
-            />
-          ),
-        }}
-      />
+      <Tabs.Protected guard={role === 'asisten'}>
+        <Tabs.Screen
+          name="rekap"
+          options={{
+            title: 'Rekap',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? 'stats-chart' : 'stats-chart-outline'}
+                size={20}
+                color={color as string}
+              />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
       {/* Tab 4: Profil */}
       <Tabs.Screen

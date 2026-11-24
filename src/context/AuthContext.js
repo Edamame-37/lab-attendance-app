@@ -1,234 +1,209 @@
-/**
- * @file src/context/AuthContext.js
- * @description State Provider untuk Autentikasi Pengguna dan Manajemen Peran (Praktikan vs Asisten).
- * Memantau listener onAuthStateChanged Firebase secara real-time dan menyinkronkan profil Firestore.
- *
- * @author Azlan (feature/auth-user-management)
- * @srs SRS-FT-01, SRS-FT-08
- */
-
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import {
-  loginUser,
-  registerUser,
-  logoutUser,
-  getUserProfile,
+  normalizeProfileRoles,
+  selectActiveRole,
+  validateAuthProfile,
+} from '../domain/auth';
+import {
   formatAuthError,
+  getUserProfile,
+  loginUser,
+  logoutUser,
+  registerUser,
 } from '../services/authService';
 
-/**
- * @typedef {Object} UserProfile
- * @property {string} uid
- * @property {string} nama
- * @property {string} nomorInduk
- * @property {string} email
- * @property {'praktikan'|'asisten'} role
- * @property {string|null} [kelas]
- */
-
-/**
- * Context Autentikasi Global
- */
 const AuthContext = createContext(null);
-const ACTIVE_ROLE_STORAGE_KEY = 'ppk.activeRole';
+const getActiveRoleStorageKey = (uid) => `ppk.activeRole.${uid}`;
 
-export const normalizeProfileRoles = (profile) => {
-  if (!profile) return [];
-  if (Array.isArray(profile.roles)) {
-    return [...new Set(profile.roles.filter((role) => ['praktikan', 'asisten'].includes(role)))];
-  }
-  return ['praktikan', 'asisten'].includes(profile.role) ? [profile.role] : [];
-};
+export { normalizeProfileRoles } from '../domain/auth';
 
-/**
- * AuthProvider membungkus aplikasi untuk menyediakan state autentikasi ke seluruh komponen
- */
 export const AuthProvider = ({ children }) => {
-  // State user dari Firebase Auth
   const [user, setUser] = useState(null);
-
-  // State profil pengguna dari Firestore (termasuk role, nama, nomorInduk, kelas)
   const [userProfile, setUserProfile] = useState(null);
-
-  // State peran aktif yang bisa dialihkan (untuk simulasi/demo maupun switch peran)
-  const [activeRole, setActiveRole] = useState(null);
-
-  // Status loading inisialisasi sesi login awal
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Status error autentikasi terkini (jika ada)
-  const [authError, setAuthError] = useState(null);
   const [activeRole, setActiveRoleState] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
-  const applyProfile = useCallback(async (profile) => {
-    const roles = normalizeProfileRoles(profile);
-    if (!profile || roles.length === 0) return false;
-
-    const storedRole = await AsyncStorage.getItem(ACTIVE_ROLE_STORAGE_KEY);
-    const nextRole = roles.includes(storedRole) ? storedRole : roles[0];
-    setUserProfile({ ...profile, role: nextRole, roles });
-    setActiveRoleState(nextRole);
-    return true;
+  const clearSessionState = useCallback(() => {
+    setUser(null);
+    setUserProfile(null);
+    setActiveRoleState(null);
   }, []);
 
-  /**
-   * Listener real-time status autentikasi Firebase
-   */
+  const applyProfile = useCallback(async (profile) => {
+    const validation = validateAuthProfile(profile);
+    if (!validation.valid) {
+      return { success: false, message: validation.message };
+    }
+
+    const roleStorageKey = getActiveRoleStorageKey(profile.uid);
+    const storedRole = await AsyncStorage.getItem(roleStorageKey);
+    const nextRole = selectActiveRole(validation.roles, storedRole);
+    if (!nextRole) {
+      return { success: false, message: 'Role aktif pengguna tidak tersedia.' };
+    }
+
+    setUserProfile({
+      ...profile,
+      accountStatus: validation.accountStatus,
+      roles: validation.roles,
+      role: nextRole,
+    });
+    setActiveRoleState(nextRole);
+
+    if (storedRole !== nextRole) {
+      await AsyncStorage.setItem(roleStorageKey, nextRole);
+    }
+
+    return { success: true };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
-        setUser(null);
-        setUserProfile(null);
-        setActiveRoleState(null);
-        setAuthError(null);
+        clearSessionState();
         setIsLoading(false);
         return;
       }
 
-      // Status Firebase Auth tetap valid meskipun profil Firestore gagal dimuat.
+      setIsLoading(true);
       setUser(currentUser);
-      setAuthError(null);
 
       try {
-        // Ambil data profil pengguna dari Firestore
         const profile = await getUserProfile(currentUser.uid);
-        if (!(await applyProfile(profile))) {
-          setUserProfile(null);
-          setAuthError(
-            'Profil pengguna tidak ditemukan atau role tidak valid. Hubungi administrator.'
-          );
+        const result = await applyProfile(profile);
+        if (!result.success) {
+          setAuthError(result.message || 'Profil pengguna tidak valid.');
           await logoutUser();
-          setUser(null);
-          setIsLoading(false);
+          clearSessionState();
           return;
         }
+        setAuthError(null);
       } catch (error) {
-        console.warn('Profil pengguna tidak dapat dimuat dari Firestore:', error);
-
-        setUserProfile(null);
-        setAuthError(
-          'Gagal memuat profil pengguna dari Firestore. Silakan coba login kembali atau hubungi administrator.'
-        );
-
+        console.warn('Profil pengguna tidak dapat dimuat:', error);
+        setAuthError('Profil pengguna tidak dapat dimuat. Silakan masuk kembali.');
         try {
           await logoutUser();
         } catch (logoutError) {
-          console.warn('Gagal mengakhiri sesi pengguna:', logoutError);
+          console.warn('Sesi pengguna tidak dapat diakhiri:', logoutError);
         }
-
-        setUser(null);
+        clearSessionState();
       } finally {
         setIsLoading(false);
       }
     });
 
-    return () => unsubscribe();
-  }, [applyProfile]);
+    return unsubscribe;
+  }, [applyProfile, clearSessionState]);
 
-  /**
-   * Fungsi Login
-   * @param {string} email
-   * @param {string} password
-   */
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     setAuthError(null);
     try {
       const { user: loggedInUser, profile } = await loginUser(email, password);
+      const result = await applyProfile(profile);
+      if (!result.success) {
+        await logoutUser();
+        throw new Error(result.message || 'Profil pengguna tidak valid.');
+      }
       setUser(loggedInUser);
-      await applyProfile(profile);
       return { success: true, user: loggedInUser, profile };
     } catch (error) {
       const errorMessage = formatAuthError(error);
       setAuthError(errorMessage);
       throw new Error(errorMessage);
     }
-  };
+  }, [applyProfile]);
 
-  /**
-   * Fungsi Register
-   * @param {Object} userData
-   */
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     setAuthError(null);
     try {
       const { user: registeredUser, profile } = await registerUser(userData);
+      const result = await applyProfile(profile);
+      if (!result.success) {
+        await logoutUser();
+        throw new Error(result.message || 'Profil pengguna tidak valid.');
+      }
       setUser(registeredUser);
-      await applyProfile(profile);
       return { success: true, user: registeredUser, profile };
     } catch (error) {
       const errorMessage = formatAuthError(error);
       setAuthError(errorMessage);
       throw new Error(errorMessage);
     }
-  };
+  }, [applyProfile]);
 
-  /**
-   * Fungsi Logout
-   */
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setAuthError(null);
+    const roleStorageKey = user?.uid ? getActiveRoleStorageKey(user.uid) : null;
     try {
       await logoutUser();
-      setUser(null);
-      setUserProfile(null);
-      setActiveRoleState(null);
-      await AsyncStorage.removeItem(ACTIVE_ROLE_STORAGE_KEY);
+      clearSessionState();
+      if (roleStorageKey) {
+        await AsyncStorage.removeItem(roleStorageKey);
+      }
     } catch (error) {
       const errorMessage = formatAuthError(error);
       setAuthError(errorMessage);
       throw new Error(errorMessage);
     }
-  };
+  }, [clearSessionState, user]);
 
-  /**
-   * Memperbarui profil secara manual dari Firestore
-   */
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) return;
-    try {
-      const profile = await getUserProfile(user.uid);
-      if (profile) {
-        await applyProfile(profile);
-      }
-    } catch (error) {
-      console.warn('Gagal memuat ulang profil pengguna:', error);
+    const profile = await getUserProfile(user.uid);
+    const result = await applyProfile(profile);
+    if (!result.success) {
+      setAuthError(result.message || 'Profil pengguna tidak valid.');
+      await logout();
     }
-  };
+  }, [applyProfile, logout, user]);
 
-  /**
-   * Autentikasi aplikasi baru dianggap valid kalau profil dan role pengguna juga valid
-   */
   const availableRoles = useMemo(
     () => normalizeProfileRoles(userProfile),
-    [userProfile]
+    [userProfile],
   );
 
-  const isAuthenticated = !!user && !!userProfile && !!activeRole && availableRoles.includes(activeRole);
-
-  /**
-   * Role aktif (dapat dialihkan untuk demonstrasi atau alih tugas)
-   */
-  const role = activeRole;
-
   const setActiveRole = useCallback(async (nextRole) => {
+    if (!user?.uid) {
+      throw new Error('Sesi pengguna tidak tersedia.');
+    }
+
     if (!availableRoles.includes(nextRole)) {
       throw new Error('Peran tersebut tidak diberikan kepada akun ini.');
     }
+
     setActiveRoleState(nextRole);
     setUserProfile((current) => current ? { ...current, role: nextRole } : current);
-    await AsyncStorage.setItem(ACTIVE_ROLE_STORAGE_KEY, nextRole);
-  }, [availableRoles]);
+    await AsyncStorage.setItem(getActiveRoleStorageKey(user.uid), nextRole);
+  }, [availableRoles, user]);
 
-  const contextValue = {
+  const isAuthenticated = Boolean(
+    user && userProfile && activeRole && availableRoles.includes(activeRole),
+  );
+  const authStatus = isLoading
+    ? 'initializing'
+    : isAuthenticated
+      ? 'authenticated'
+      : 'unauthenticated';
+
+  const contextValue = useMemo(() => ({
     user,
     userProfile,
-    role,
+    role: activeRole,
     activeRole,
     availableRoles,
     setActiveRole,
+    authStatus,
     isLoading,
     isAuthenticated,
     authError,
@@ -237,17 +212,25 @@ export const AuthProvider = ({ children }) => {
     logout,
     refreshProfile,
     setAuthError,
-  };
+  }), [
+    activeRole,
+    authError,
+    authStatus,
+    availableRoles,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+    refreshProfile,
+    register,
+    setActiveRole,
+    user,
+    userProfile,
+  ]);
 
-  return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
-/**
- * Custom hook untuk mengakses state dan aksi autentikasi
- * @returns {Object} auth context value
- */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -257,4 +240,3 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
-

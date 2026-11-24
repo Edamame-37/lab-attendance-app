@@ -1,43 +1,34 @@
 import React, { useMemo } from 'react';
 import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
 import { radius, spacing } from '@/theme';
+import type { PeranPengguna } from '@/types';
 
-export default function ProfilScreen(): React.JSX.Element {
-  const {
-    peranAktif,
-    penggunaAktif,
-    daftarSesi,
-    ambilRiwayatPraktikan,
-    gantiPeran,
-    modeTema,
-    setModeTema,
-    tema,
-  } = useApp();
+export default function ProfileScreen(): React.JSX.Element {
+  const router = useRouter();
+  const { userProfile, user, role, availableRoles, setActiveRole, logout } = useAuth();
+  const { tema, modeTema, setModeTema } = useApp();
 
-  const { logout, user, userProfile } = useAuth();
+  const initials = useMemo(
+    () => (userProfile?.nama || 'Pengguna')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase(),
+    [userProfile?.nama],
+  );
 
-  const [modalPeranVisible, setModalPeranVisible] = useState<boolean>(false);
-
-  // Label opsi peran dinamis akun
-  const praktikanSubLabel = userProfile
-    ? `${userProfile.nama} · ${userProfile.nomorInduk || 'Mahasiswa'}${userProfile.kelas ? ` (${userProfile.kelas})` : ''}`
-    : 'Ahmad Fauzi · 2141720001 (TI-3A)';
-
-  const asistenSubLabel = userProfile
-    ? `${userProfile.nama} · Asisten Laboratorium`
-    : 'Rian Hidayat, S.Kom. · Koordinator RPL';
-
-  // Inisial avatar 2 huruf
-  const inisial = penggunaAktif.nama
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((kata) => kata[0].toUpperCase())
-    .join('');
+  const changeRole = async (nextRole: PeranPengguna): Promise<void> => {
+    if (nextRole === role) return;
+    await setActiveRole(nextRole);
+    router.replace('/(tabs)');
+  };
 
   const confirmLogout = (): void => {
     Alert.alert('Keluar dari akun', 'Sesi login pada perangkat ini akan diakhiri.', [
@@ -58,6 +49,7 @@ export default function ProfilScreen(): React.JSX.Element {
         <Text style={[styles.meta, { color: tema.textSecondary }]}>
           {role === 'asisten' ? 'Asisten Laboratorium' : `Praktikan${userProfile?.kelas ? ` · ${userProfile.kelas}` : ''}`}
         </Text>
+        <Text style={[styles.accountStatus, { color: '#059669' }]}>AKUN AKTIF</Text>
       </View>
 
       {availableRoles.length > 1 ? (
@@ -70,7 +62,7 @@ export default function ProfilScreen(): React.JSX.Element {
                 <TouchableOpacity
                   key={availableRole}
                   style={[styles.roleRow, selected && { backgroundColor: tema.accentSurface }]}
-                  onPress={() => void setActiveRole(availableRole)}
+                  onPress={() => void changeRole(availableRole)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                 >
@@ -101,297 +93,7 @@ export default function ProfilScreen(): React.JSX.Element {
         </View>
       </View>
 
-      {/* SECTION 3: PENGATURAN & SISTEM */}
-      <SectionHeader title="Pengaturan & Sistem" />
-
-      <GroupedInsetList>
-        {/* Switch Button: Mode Tampilan (Dark Mode) */}
-        <GroupedInsetItem
-          title="Mode Tampilan (Dark Mode)"
-          subtitle={
-            modeTema === 'dark'
-              ? 'Obsidian Dark (Opsi 2 Aktif)'
-              : 'Warm Academic Stone (Opsi 3 Aktif)'
-          }
-          leftElement={
-            <View
-              style={[
-                styles.itemIconSquircle,
-                {
-                  backgroundColor: tema.accentSurface,
-                },
-              ]}
-            >
-              <Ionicons
-                name={modeTema === 'dark' ? 'moon' : 'sunny'}
-                size={17}
-                color={tema.accentText}
-              />
-            </View>
-          }
-          rightElement={
-            <Switch
-              value={modeTema === 'dark'}
-              onValueChange={(val) => setModeTema(val ? 'dark' : 'light')}
-              thumbColor={modeTema === 'dark' ? tema.accent : '#FFFFFF'}
-              trackColor={{
-                false: '#D4D4D8',
-                true: modeTema === 'dark' ? '#312E81' : tema.accentSurface,
-              }}
-              accessibilityLabel="Pengalih Mode Tampilan Gelap"
-            />
-          }
-        />
-
-        {/* Alih Peran Pengguna */}
-        <GroupedInsetItem
-          title="Alih Peran Pengguna"
-          subtitle="Ganti sudut pandang Mahasiswa / Asisten"
-          leftElement={
-            <View
-              style={[
-                styles.itemIconSquircle,
-                {
-                  backgroundColor: tema.accentSurface,
-                },
-              ]}
-            >
-              <Ionicons
-                name="swap-horizontal"
-                size={17}
-                color={tema.accentText}
-              />
-            </View>
-          }
-          rightElement={
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color={tema.textMuted}
-            />
-          }
-          onPress={() => setModalPeranVisible(true)}
-        />
-
-        {/* Versi Aplikasi */}
-        <GroupedInsetItem
-          title="Versi Aplikasi"
-          subtitle="v1.0.0 · Production Build"
-          isLast
-          leftElement={
-            <View
-              style={[
-                styles.itemIconSquircle,
-                {
-                  backgroundColor: tema.surfaceRaised,
-                },
-              ]}
-            >
-              <Ionicons
-                name="code-working-outline"
-                size={17}
-                color={tema.textMuted}
-              />
-            </View>
-          }
-          rightElement={
-            <View
-              style={[
-                styles.badgeVersion,
-                { backgroundColor: tema.surfaceRaised },
-              ]}
-            >
-              <Text
-                style={[styles.badgeVersionText, { color: tema.textMuted }]}
-              >
-                Official
-              </Text>
-            </View>
-          }
-        />
-      </GroupedInsetList>
-
-      {/* SECTION 4: SESI & AKUN FIREBASE */}
-      <SectionHeader title="Akun & Sesi" />
-      <GroupedInsetList>
-        <GroupedInsetItem
-          title="Email Akun"
-          subtitle={user?.email || 'Akun Pengembang / Tamu'}
-          leftElement={
-            <View
-              style={[
-                styles.itemIconSquircle,
-                { backgroundColor: tema.surfaceRaised },
-              ]}
-            >
-              <Ionicons name="mail-outline" size={17} color={tema.accent} />
-            </View>
-          }
-        />
-        <GroupedInsetItem
-          title="Keluar dari Akun"
-          subtitle="Mengakhiri sesi autentikasi Firebase"
-          isLast
-          leftElement={
-            <View
-              style={[
-                styles.itemIconSquircle,
-                { backgroundColor: '#FEE2E2' },
-              ]}
-            >
-              <Ionicons name="log-out-outline" size={17} color="#DC2626" />
-            </View>
-          }
-          rightElement={
-            <Ionicons name="chevron-forward" size={16} color="#DC2626" />
-          }
-          onPress={async () => {
-            try {
-              await logout();
-            } catch (err) {
-              console.error('Logout error:', err);
-            }
-          }}
-        />
-      </GroupedInsetList>
-
-      {/* Modal Dialog: Alih Peran */}
-      <Modal
-        visible={modalPeranVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalPeranVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View
-            style={[
-              styles.modalCard,
-              {
-                backgroundColor: tema.surface,
-                borderColor: tema.border,
-              },
-            ]}
-          >
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalTitle, { color: tema.textPrimary }]}>
-                Pilih Identitas Simulasi
-              </Text>
-              <TouchableOpacity
-                onPress={() => setModalPeranVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={20} color={tema.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.modalPeranDesc, { color: tema.textSecondary }]}>
-              Ganti sudut pandang untuk menguji hak akses & tampilan:
-            </Text>
-
-            {/* Opsi Praktikan */}
-            <TouchableOpacity
-              style={[
-                styles.roleChoiceCard,
-                {
-                  backgroundColor:
-                    peranAktif === 'praktikan'
-                      ? tema.accentSurface
-                      : tema.surfaceRaised,
-                  borderColor:
-                    peranAktif === 'praktikan' ? tema.accent : tema.border,
-                },
-              ]}
-              onPress={() => {
-                gantiPeran('praktikan');
-                setModalPeranVisible(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.roleChoiceMeta}>
-                <Text
-                  style={[
-                    styles.roleChoiceTitle,
-                    {
-                      color:
-                        peranAktif === 'praktikan'
-                          ? tema.accentText
-                          : tema.textPrimary,
-                    },
-                  ]}
-                >
-                  Mahasiswa (Praktikan)
-                </Text>
-                <Text
-                  style={[
-                    styles.roleChoiceSub,
-                    { color: tema.textSecondary },
-                  ]}
-                >
-                  {praktikanSubLabel}
-                </Text>
-              </View>
-              {peranAktif === 'praktikan' && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={tema.accent}
-                />
-              )}
-            </TouchableOpacity>
-
-            {/* Opsi Asisten */}
-            <TouchableOpacity
-              style={[
-                styles.roleChoiceCard,
-                {
-                  backgroundColor:
-                    peranAktif === 'asisten'
-                      ? tema.accentSurface
-                      : tema.surfaceRaised,
-                  borderColor:
-                    peranAktif === 'asisten' ? tema.accent : tema.border,
-                },
-              ]}
-              onPress={() => {
-                gantiPeran('asisten');
-                setModalPeranVisible(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.roleChoiceMeta}>
-                <Text
-                  style={[
-                    styles.roleChoiceTitle,
-                    {
-                      color:
-                        peranAktif === 'asisten'
-                          ? tema.accentText
-                          : tema.textPrimary,
-                    },
-                  ]}
-                >
-                  Asisten Laboratorium
-                </Text>
-                <Text
-                  style={[
-                    styles.roleChoiceSub,
-                    { color: tema.textSecondary },
-                  ]}
-                >
-                  {asistenSubLabel}
-                </Text>
-              </View>
-              {peranAktif === 'asisten' && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={tema.accent}
-                />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <Text style={[styles.version, { color: tema.textMuted }]}>PPK Mobile Praktikum · v1.1.0</Text>
     </ScreenContainer>
   );
 }
@@ -403,6 +105,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 18, fontWeight: '800', textAlign: 'center' },
   identifier: { fontSize: 13, fontWeight: '700', marginTop: 4 },
   meta: { fontSize: 12, marginTop: 3, textAlign: 'center' },
+  accountStatus: { fontSize: 10, fontWeight: '800', marginTop: spacing.sm },
   section: { gap: spacing.sm },
   sectionTitle: { fontSize: 14, fontWeight: '800' },
   card: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },

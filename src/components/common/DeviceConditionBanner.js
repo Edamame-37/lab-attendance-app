@@ -60,7 +60,7 @@ const DeviceConditionBanner = ({
 
           <View style={styles.status}>
             <Ionicons
-              name={item.active ? 'check-circle' : 'alert-circle'}
+              name={item.active ? 'checkmark-circle' : 'alert-circle'}
               size={18}
               color={item.active ? '#2F9B69' : '#D97757'}
             />

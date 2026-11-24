@@ -30,7 +30,7 @@ import { useAuth } from '../../context/AuthContext';
  * @param {Function} [props.onNavigateToRegister] - Callback untuk navigasi ke RegisterScreen
  */
 const LoginScreen = ({ onNavigateToRegister }) => {
-  const { login } = useAuth();
+  const { login, authError, setAuthError } = useAuth();
 
   // State form
   const [email, setEmail] = useState('');
@@ -40,6 +40,7 @@ const LoginScreen = ({ onNavigateToRegister }) => {
   // State interaksi
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const displayedError = errorMessage || authError;
 
   /**
    * Menangani pengiriman formulir login
@@ -100,10 +101,10 @@ const LoginScreen = ({ onNavigateToRegister }) => {
           {/* Kotak Form Login */}
           <View style={styles.cardContainer}>
             {/* Banner Pesan Error */}
-            {errorMessage ? (
+            {displayedError ? (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle" size={20} color="#DC2626" />
-                <Text style={styles.errorText}>{errorMessage}</Text>
+                <Text style={styles.errorText}>{displayedError}</Text>
               </View>
             ) : null}
 
@@ -125,6 +126,7 @@ const LoginScreen = ({ onNavigateToRegister }) => {
                   onChangeText={(text) => {
                     setEmail(text);
                     if (errorMessage) setErrorMessage('');
+                    if (authError) setAuthError(null);
                   }}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -152,6 +154,7 @@ const LoginScreen = ({ onNavigateToRegister }) => {
                   onChangeText={(text) => {
                     setPassword(text);
                     if (errorMessage) setErrorMessage('');
+                    if (authError) setAuthError(null);
                   }}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"

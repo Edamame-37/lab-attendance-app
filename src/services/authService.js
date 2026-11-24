@@ -22,6 +22,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { normalizeProfileRoles, selectActiveRole } from '../domain/auth';
 
 /**
  * Format pesan error Firebase menjadi pesan ramah pengguna berbahasa Indonesia
@@ -112,6 +113,7 @@ export const registerUser = async ({
       email: cleanEmail,
       role: 'praktikan',
       roles: ['praktikan'],
+      accountStatus: 'active',
       kelas: kelas.trim(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -184,18 +186,14 @@ export const getUserProfile = async (uid) => {
 
   if (docSnap.exists()) {
     const profileData = docSnap.data();
-    const legacyRole = profileData.role;
-    const roles = Array.isArray(profileData.roles)
-      ? profileData.roles.filter((role) => ['praktikan', 'asisten'].includes(role))
-      : ['praktikan', 'asisten'].includes(legacyRole)
-        ? [legacyRole]
-        : [];
+    const roles = normalizeProfileRoles(profileData);
 
     return {
       uid,
       ...profileData,
-      role: roles[0] || null,
+      role: selectActiveRole(roles, profileData.role),
       roles,
+      accountStatus: profileData.accountStatus === 'suspended' ? 'suspended' : 'active',
     };
   }
 
@@ -212,9 +210,12 @@ export const getUserProfile = async (uid) => {
 export const updateUserProfile = async (uid, updateData) => {
   if (!uid) throw new Error('UID pengguna wajib disertakan.');
 
+  const nama = updateData?.nama?.trim();
+  if (!nama) throw new Error('Nama pengguna wajib diisi.');
+
   const userDocRef = doc(db, 'users', uid);
   await updateDoc(userDocRef, {
-    ...updateData,
+    nama,
     updatedAt: serverTimestamp(),
   });
 };

@@ -40,7 +40,7 @@ const getStatusLabel = (status) => {
 };
 
 export const LeaveReviewScreen = () => {
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +81,8 @@ export const LeaveReviewScreen = () => {
               await reviewLeaveRequest(
                 requestId,
                 decision,
-                userProfile?.nama
+                userProfile?.nama,
+                user?.uid
               );
 
               Alert.alert(

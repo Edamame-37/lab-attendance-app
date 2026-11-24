@@ -18,18 +18,67 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isAsisten() {
-      return userExists() && (
-        getUserData().get('role', '') == 'asisten' ||
-        (getUserData().get('roles', []) is list && 'asisten' in getUserData().get('roles', []))
+    function isActiveUser() {
+      return userExists() && getUserData().get('accountStatus', 'active') == 'active';
+    }
+
+    function hasRole(role) {
+      return isActiveUser() && (
+        getUserData().get('role', '') == role ||
+        (getUserData().get('roles', []) is list && role in getUserData().get('roles', []))
       );
     }
 
+    function isAsisten() {
+      return hasRole('asisten');
+    }
+
     function isPraktikan() {
-      return userExists() && (
-        getUserData().get('role', '') == 'praktikan' ||
-        (getUserData().get('roles', []) is list && 'praktikan' in getUserData().get('roles', []))
-      );
+      return hasRole('praktikan');
+    }
+
+    function validUserData(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'email',
+          'nama',
+          'nomorInduk',
+          'kelas',
+          'role',
+          'roles',
+          'accountStatus',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid',
+          'email',
+          'nama',
+          'nomorInduk',
+          'kelas',
+          'role',
+          'roles',
+          'accountStatus',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.uid == userId &&
+        data.uid is string &&
+        data.email is string &&
+        data.nama is string &&
+        data.nama.size() >= 2 &&
+        data.nama.size() <= 100 &&
+        data.nomorInduk is string &&
+        data.nomorInduk.size() >= 3 &&
+        data.kelas is string &&
+        data.role in ['praktikan', 'asisten'] &&
+        data.roles is list &&
+        data.roles.size() >= 1 &&
+        data.roles.size() <= 2 &&
+        data.role in data.roles &&
+        data.accountStatus in ['active', 'suspended'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
     }
 
     function labExistsAndActive(labId) {
@@ -70,6 +119,82 @@ service cloud.firestore {
         data.updatedAt is timestamp &&
         data.updatedBy == request.auth.uid &&
         data.get('address', '') is string;
+    }
+
+    function validSessionData(data) {
+      return data.keys().hasAll([
+          'kodeMataKuliah',
+          'namaPraktikum',
+          'topikMateri',
+          'kelas',
+          'labId',
+          'ruangLab',
+          'hari',
+          'jamMulai',
+          'jamSelesai',
+          'namaAsisten',
+          'asistenId',
+          'status',
+          'statusSesi',
+          'catatanPembuka',
+          'waktuBuka',
+          'waktuTutup',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'kodeMataKuliah',
+          'namaPraktikum',
+          'topikMateri',
+          'kelas',
+          'labId',
+          'ruangLab',
+          'hari',
+          'jamMulai',
+          'jamSelesai',
+          'namaAsisten',
+          'asistenId',
+          'status',
+          'statusSesi',
+          'catatanPembuka',
+          'waktuBuka',
+          'waktuTutup',
+          'daftarPeserta',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.kodeMataKuliah is string &&
+        data.namaPraktikum is string &&
+        data.topikMateri is string &&
+        data.kelas is string &&
+        data.labId is string &&
+        data.ruangLab is string &&
+        data.hari is string &&
+        data.jamMulai is string &&
+        data.jamSelesai is string &&
+        data.namaAsisten is string &&
+        data.asistenId is string &&
+        data.status in ['open', 'closed'] &&
+        data.statusSesi in ['DITUTUP', 'DIBUKA', 'SELESAI'] &&
+        ((data.status == 'open' && data.statusSesi == 'DIBUKA') ||
+          (data.status == 'closed' && data.statusSesi in ['DITUTUP', 'SELESAI'])) &&
+        data.catatanPembuka is string &&
+        (data.waktuBuka == null || data.waktuBuka is timestamp) &&
+        (data.waktuTutup == null || data.waktuTutup is timestamp) &&
+        data.get('daftarPeserta', []) is list &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function validSessionTransition(before, after) {
+      return (
+        (before.status == 'closed' && before.statusSesi == 'DITUTUP' &&
+          ((after.status == 'closed' && after.statusSesi == 'DITUTUP') ||
+           (after.status == 'open' && after.statusSesi == 'DIBUKA'))) ||
+        (before.status == 'open' && before.statusSesi == 'DIBUKA' &&
+          ((after.status == 'open' && after.statusSesi == 'DIBUKA') ||
+           (after.status == 'closed' && after.statusSesi == 'SELESAI')))
+      );
     }
 
     function validAttendanceCreate(attendanceId) {
@@ -137,19 +262,18 @@ service cloud.firestore {
         attendance.locationCapturedAt <= request.time &&
         attendance.locationCapturedAt >= request.time - duration.value(5, 'm') &&
         attendance.statusKehadiran == 'HADIR' &&
-        attendance.studentName is string &&
-        attendance.studentNim is string &&
-        attendance.studentClass is string &&
         attendance.studentName == getUserData().nama &&
         attendance.studentNim == getUserData().nomorInduk &&
-        attendance.studentClass == getUserData().get('kelas', '') &&
+        attendance.studentClass == getUserData().kelas &&
+        attendance.studentClass == session.kelas &&
         attendance.namaPraktikum is string &&
         attendance.topikMateri is string &&
         attendance.catatan is string &&
         attendance.waktuPresensi is string &&
         attendance.tanggal is string &&
         session.labId == attendance.labId &&
-        (session.status == 'open' || session.statusSesi == 'DIBUKA') &&
+        session.status == 'open' &&
+        session.statusSesi == 'DIBUKA' &&
         lab.isActive == true &&
         lab.location is latlng &&
         lab.radiusMeters is number &&
@@ -157,27 +281,99 @@ service cloud.firestore {
         math.abs(attendance.distanceMeters - calculatedDistance) <= 2;
     }
 
+    function validLeaveCreate(requestId) {
+      let leaveRequest = request.resource.data;
+      let session = get(
+        /databases/$(database)/documents/sessions/$(leaveRequest.sessionId)
+      ).data;
+
+      return leaveRequest.keys().hasAll([
+          'studentId',
+          'studentName',
+          'studentNim',
+          'sessionId',
+          'sessionName',
+          'reason',
+          'aiCategory',
+          'aiStatus',
+          'aiExperimental',
+          'aiScoreType',
+          'status',
+          'reviewedBy',
+          'reviewedByUid',
+          'reviewedAt',
+          'createdAt'
+        ]) &&
+        leaveRequest.keys().hasOnly([
+          'studentId',
+          'studentName',
+          'studentNim',
+          'sessionId',
+          'sessionName',
+          'reason',
+          'aiCategory',
+          'aiStatus',
+          'aiExperimental',
+          'aiScoreType',
+          'status',
+          'reviewedBy',
+          'reviewedByUid',
+          'reviewedAt',
+          'createdAt'
+        ]) &&
+        requestId == leaveRequest.sessionId + '_' + request.auth.uid &&
+        leaveRequest.studentId == request.auth.uid &&
+        leaveRequest.studentName == getUserData().nama &&
+        leaveRequest.studentNim == getUserData().nomorInduk &&
+        leaveRequest.sessionId is string &&
+        leaveRequest.sessionName is string &&
+        leaveRequest.reason is string &&
+        leaveRequest.reason.size() >= 10 &&
+        leaveRequest.reason.size() <= 1000 &&
+        (leaveRequest.aiCategory == null || leaveRequest.aiCategory is string) &&
+        leaveRequest.aiStatus is string &&
+        leaveRequest.aiExperimental is bool &&
+        (leaveRequest.aiScoreType == null || leaveRequest.aiScoreType is string) &&
+        leaveRequest.status == 'pending' &&
+        leaveRequest.reviewedBy == null &&
+        leaveRequest.reviewedByUid == null &&
+        leaveRequest.reviewedAt == null &&
+        leaveRequest.createdAt == request.time &&
+        session.status == 'open' &&
+        session.statusSesi == 'DIBUKA' &&
+        session.kelas == getUserData().kelas;
+    }
+
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAsisten();
+      allow read: if isOwner(userId);
 
       allow create: if isOwner(userId) &&
-        request.resource.data.uid == userId &&
+        validUserData(request.resource.data, userId) &&
         request.resource.data.email == request.auth.token.email &&
         request.resource.data.role == 'praktikan' &&
-        request.resource.data.get('roles', ['praktikan']) == ['praktikan'];
+        request.resource.data.roles == ['praktikan'] &&
+        request.resource.data.accountStatus == 'active' &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time;
 
       allow update: if isOwner(userId) &&
+        validUserData(request.resource.data, userId) &&
         request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.nomorInduk == resource.data.nomorInduk &&
+        request.resource.data.kelas == resource.data.kelas &&
         request.resource.data.role == resource.data.role &&
-        request.resource.data.get('roles', []) == resource.data.get('roles', []) &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['nama', 'nomorInduk', 'kelas', 'updatedAt']);
+        request.resource.data.roles == resource.data.roles &&
+        request.resource.data.accountStatus == resource.data.accountStatus &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nama', 'updatedAt']);
 
       allow delete: if false;
     }
 
     match /labs/{labId} {
-      allow read: if isAuthenticated();
+      allow read: if isActiveUser();
 
       allow create: if isAsisten() &&
         validLabData(request.resource.data) &&
@@ -203,65 +399,60 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      allow read: if isAuthenticated();
+      allow read: if isActiveUser();
 
       allow create: if isAsisten() &&
+        validSessionData(request.resource.data) &&
         request.resource.data.asistenId == request.auth.uid &&
-        request.resource.data.namaPraktikum is string &&
-        request.resource.data.kelas is string &&
         request.resource.data.status == 'closed' &&
         request.resource.data.statusSesi == 'DITUTUP' &&
-        request.resource.data.labId is string &&
+        request.resource.data.waktuBuka == null &&
+        request.resource.data.waktuTutup == null &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time &&
         labExistsAndActive(request.resource.data.labId);
 
       allow update: if isAsisten() &&
+        resource.data.asistenId == request.auth.uid &&
         request.resource.data.asistenId == resource.data.asistenId &&
-        request.resource.data.labId is string &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.updatedAt == request.time &&
+        validSessionData(request.resource.data) &&
+        validSessionTransition(resource.data, request.resource.data) &&
         labExistsAndActive(request.resource.data.labId);
 
-      allow delete: if isAsisten();
+      allow delete: if isAsisten() && resource.data.asistenId == request.auth.uid;
     }
 
     match /attendances/{attendanceId} {
-      allow read: if isAuthenticated() && (
+      allow read: if isActiveUser() && (
         resource.data.get('studentId', '') == request.auth.uid ||
-        resource.data.get('praktikanId', '') == request.auth.uid ||
         isAsisten()
       );
 
-      allow create: if isAuthenticated() && isPraktikan() && validAttendanceCreate(attendanceId);
+      allow create: if isPraktikan() && validAttendanceCreate(attendanceId);
 
-      allow update, delete: if isAsisten();
+      allow update, delete: if false;
     }
 
     match /leave_requests/{requestId} {
-      allow read: if isAuthenticated() && (
+      allow read: if isActiveUser() && (
         resource.data.studentId == request.auth.uid ||
-        resource.data.praktikanId == request.auth.uid ||
         isAsisten()
       );
 
-      allow create: if isAuthenticated() &&
-        request.resource.data.studentId == request.auth.uid &&
-        request.resource.data.status == 'pending' &&
-        request.resource.data.keys().hasAll([
-          'studentId',
-          'studentName',
-          'studentNim',
-          'sessionId',
-          'sessionName',
-          'reason',
-          'status',
-          'createdAt'
-        ]);
+      allow create: if isPraktikan() && validLeaveCreate(requestId);
 
       allow update: if isAsisten() &&
         resource.data.status == 'pending' &&
         request.resource.data.status in ['approved', 'rejected'] &&
+        request.resource.data.reviewedBy == getUserData().nama &&
+        request.resource.data.reviewedByUid == request.auth.uid &&
+        request.resource.data.reviewedAt == request.time &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'reviewedBy', 'reviewedAt']);
+          .hasOnly(['status', 'reviewedBy', 'reviewedByUid', 'reviewedAt']);
 
-      allow delete: if isAsisten();
+      allow delete: if false;
     }
   }
 }
