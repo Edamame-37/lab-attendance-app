@@ -14,6 +14,27 @@ import { db } from '../config/firebase';
 
 const COLLECTION_NAME = 'leave_requests';
 
+const getCreatedAtMillis = (createdAt) => {
+  if (typeof createdAt?.toMillis === 'function') {
+    return createdAt.toMillis();
+  }
+
+  if (typeof createdAt?.seconds === 'number') {
+    return createdAt.seconds * 1000;
+  }
+
+  const parsedTimestamp = Date.parse(createdAt);
+  return Number.isFinite(parsedTimestamp) ? parsedTimestamp : 0;
+};
+
+export const sortLeaveRequestsByCreatedAt = (requests = []) => {
+  return [...requests].sort(
+    (firstRequest, secondRequest) =>
+      getCreatedAtMillis(secondRequest.createdAt) -
+      getCreatedAtMillis(firstRequest.createdAt)
+  );
+};
+
 // Membuat pengajuan izin baru dari Praktikan
 export const submitLeaveRequest = async (payload) => {
   if (
@@ -81,17 +102,18 @@ export const subscribeStudentLeaveRequests = (
 
   const q = query(
     collection(db, COLLECTION_NAME),
-    where('studentId', '==', studentId),
-    orderBy('createdAt', 'desc')
+    where('studentId', '==', studentId)
   );
 
   return onSnapshot(
     q,
     (snapshot) => {
-      const items = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
+      const items = sortLeaveRequestsByCreatedAt(
+        snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }))
+      );
 
       onUpdate(items);
     },
