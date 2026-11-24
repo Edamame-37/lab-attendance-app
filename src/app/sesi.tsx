@@ -263,19 +263,9 @@ export default function SesiScreen(): React.JSX.Element {
               Sesi Praktikum
             </Text>
             <Text style={[styles.navSubtitle, { color: tema.textSecondary }]}>
-              Cloud Firestore • SRS-FT-02
+              Kelola jadwal praktikum
             </Text>
           </View>
-
-          <TouchableOpacity
-            style={[styles.presensiLinkBtn, { backgroundColor: tema.accentSurface || '#ECFDF5' }]}
-            onPress={() => router.push('/lokasi-lab' as any)}
-          >
-            <Ionicons name="location-outline" size={16} color={tema.accent} />
-            <Text style={[styles.presensiLinkText, { color: tema.accent }]}>
-              Lokasi Lab
-            </Text>
-          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -299,43 +289,31 @@ export default function SesiScreen(): React.JSX.Element {
               VIEW KHUSUS ASISTEN (SRS-FT-02 & SRS-FT-04)
               ========================================================================= */}
           <View>
-              {/* Action Bar Asisten */}
-              <View style={styles.asistenActionBar}>
-                <View>
-                  <Text style={[styles.sectionHeading, { color: tema.textPrimary }]}>
-                    Daftar Sesi Laboratorium ({sessions.length})
-                  </Text>
-                  <Text style={[styles.sectionSub, { color: tema.textSecondary }]}>
-                    Operasi CRUD tersimpan langsung di Cloud Firestore
-                  </Text>
-                </View>
+              
+            {/* Action Bar Asisten */}
+            <View style={styles.asistenActionBar}>
+              <Text style={[styles.sectionHeading, { color: tema.textPrimary }]}>
+                Daftar Sesi Laboratorium ({sessions.length})
+              </Text>
 
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <TouchableOpacity
-                    style={[styles.btnSeed, { borderColor: tema.accent }]}
-                    onPress={() => router.push('/lokasi-lab' as any)}
-                  >
-                    <Text style={[styles.btnSeedText, { color: tema.accent }]}>Lokasi Lab</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.btnAddSession, { backgroundColor: tema.accent }]}
-                    onPress={() => {
-                      setFormKode('PPK-2026');
-                      setFormNamaPraktikum('');
-                      setFormTopik('');
-                      setFormKelas('TI-3A');
-                      setFormRuangLab('Lab RPL 1');
-                      setFormLabId(activeLabs[0]?.id || '');
-                      setFormHari('Senin');
-                      setFormJamMulai('08:00');
-                      setFormJamSelesai('10:30');
-                      setModalCreateVisible(true);
-                    }}
-                  >
-                    <Text style={styles.btnAddSessionText}>+ Buat Sesi</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <TouchableOpacity
+                style={[styles.btnAddSession, { backgroundColor: tema.accent }]}
+                onPress={() => {
+                  setFormKode('PPK-2026');
+                  setFormNamaPraktikum('');
+                  setFormTopik('');
+                  setFormKelas('TI-3A');
+                  setFormRuangLab('Lab RPL 1');
+                  setFormLabId(activeLabs[0]?.id || '');
+                  setFormHari('Senin');
+                  setFormJamMulai('08:00');
+                  setFormJamSelesai('10:30');
+                  setModalCreateVisible(true);
+                }}
+              >
+                <Text style={styles.btnAddSessionText}>+ Buat Sesi</Text>
+              </TouchableOpacity>
+            </View>
 
               {/* Komponen Rekap Live Asisten (SRS-FT-04) */}
               {activeSelectedSession && (
