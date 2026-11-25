@@ -16,10 +16,14 @@ import { formatLocationError, getCurrentDeviceLocation } from '../../services/lo
 const EMPTY_FORM = {
   name: '',
   code: '',
+  courseCode: '',
+  courseName: '',
   address: '',
   latitude: '',
   longitude: '',
   radiusMeters: '50',
+  gracePeriodMinutes: '15',
+  lateFineAmount: '10000',
 };
 
 export default function LabLocationManageScreen() {
@@ -62,10 +66,14 @@ export default function LabLocationManageScreen() {
     setForm({
       name: lab.name || '',
       code: lab.code || '',
+      courseCode: lab.courseCode || '',
+      courseName: lab.courseName || '',
       address: lab.address || '',
       latitude: String(lab.latitude ?? ''),
       longitude: String(lab.longitude ?? ''),
       radiusMeters: String(lab.radiusMeters ?? 50),
+      gracePeriodMinutes: String(lab.gracePeriodMinutes ?? 15),
+      lateFineAmount: String(lab.lateFineAmount ?? 10000),
     });
   };
 
@@ -90,49 +98,14 @@ export default function LabLocationManageScreen() {
     setIsSaving(true);
     setError('');
     try {
-      const name = form.name?.trim();
-      const code = form.code?.trim().toUpperCase();
-      if (!name || !code) {
-        throw new Error('Nama dan kode laboratorium wajib diisi.');
-      }
-
-      const cleanLat = String(form.latitude ?? '').trim().replace(',', '.');
-      const cleanLng = String(form.longitude ?? '').trim().replace(',', '.');
-      if (!cleanLat || !cleanLng) {
-        throw new Error('Koordinat latitude dan longitude wajib diisi.');
-      }
-
-      const latNum = Number(cleanLat);
-      const lngNum = Number(cleanLng);
-      if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
-        throw new Error('Latitude harus berupa angka valid antara -90 dan 90.');
-      }
-      if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
-        throw new Error('Longitude harus berupa angka valid antara -180 dan 180.');
-      }
-
-      const cleanRadius = String(form.radiusMeters ?? '').trim().replace(',', '.');
-      const radiusNum = Number(cleanRadius);
-      if (!cleanRadius || !Number.isFinite(radiusNum) || radiusNum <= 0) {
-        throw new Error('Radius harus berupa angka positif lebih dari 0 meter.');
-      }
-
-      const sanitizedForm = {
-        ...form,
-        name,
-        code,
-        latitude: latNum,
-        longitude: lngNum,
-        radiusMeters: radiusNum,
-      };
-
+      const wasEditing = Boolean(editingLabId);
       if (editingLabId) {
-        await updateLab(editingLabId, sanitizedForm, user?.uid);
+        await updateLab(editingLabId, form, user?.uid);
       } else {
-        await createLab(sanitizedForm, user?.uid);
+        await createLab(form, user?.uid);
       }
       resetForm();
-      Alert.alert('Berhasil', editingLabId ? 'Lokasi laboratorium diperbarui.' : 'Laboratorium baru ditambahkan.');
+      Alert.alert('Berhasil', wasEditing ? 'Laboratorium diperbarui.' : 'Laboratorium baru ditambahkan.');
     } catch (saveError) {
       setError(saveError.message || 'Data laboratorium tidak dapat disimpan.');
     } finally {
@@ -176,6 +149,17 @@ export default function LabLocationManageScreen() {
 
       {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
 
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={[styles.quickAction, { backgroundColor: tema.surface, borderColor: tema.border }]} onPress={() => router.push('/bulk-insert')}>
+          <Ionicons name="documents-outline" size={20} color={tema.accent} />
+          <Text style={[styles.quickActionText, { color: tema.textPrimary }]}>Bulk / Single Insert</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.quickAction, { backgroundColor: tema.surface, borderColor: tema.border }]} onPress={() => router.push('/transfer-lab')}>
+          <Ionicons name="swap-horizontal" size={20} color={tema.accent} />
+          <Text style={[styles.quickActionText, { color: tema.textPrimary }]}>Transfer Anggota</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={[styles.formCard, { backgroundColor: tema.surface, borderColor: tema.border }]}>
         <View style={styles.formHeader}>
           <Text style={[styles.formTitle, { color: tema.textPrimary }]}>
@@ -202,6 +186,23 @@ export default function LabLocationManageScreen() {
           value={form.code}
           onChangeText={(value) => updateForm('code', value)}
         />
+        <View style={styles.coordinateRow}>
+          <TextInput
+            style={[styles.input, styles.flexInput, { color: tema.textPrimary, borderColor: tema.border }]}
+            placeholder="Kode mata kuliah"
+            autoCapitalize="characters"
+            placeholderTextColor={tema.textMuted}
+            value={form.courseCode}
+            onChangeText={(value) => updateForm('courseCode', value)}
+          />
+          <TextInput
+            style={[styles.input, styles.flexInput, { color: tema.textPrimary, borderColor: tema.border }]}
+            placeholder="Nama mata kuliah"
+            placeholderTextColor={tema.textMuted}
+            value={form.courseName}
+            onChangeText={(value) => updateForm('courseName', value)}
+          />
+        </View>
         <TextInput
           style={[styles.input, { color: tema.textPrimary, borderColor: tema.border }]}
           placeholder="Alamat atau keterangan lokasi"
@@ -235,6 +236,24 @@ export default function LabLocationManageScreen() {
           value={form.radiusMeters}
           onChangeText={(value) => updateForm('radiusMeters', value)}
         />
+        <View style={styles.coordinateRow}>
+          <TextInput
+            style={[styles.input, styles.flexInput, { color: tema.textPrimary, borderColor: tema.border }]}
+            placeholder="Grace period (menit)"
+            keyboardType="decimal-pad"
+            placeholderTextColor={tema.textMuted}
+            value={form.gracePeriodMinutes}
+            onChangeText={(value) => updateForm('gracePeriodMinutes', value)}
+          />
+          <TextInput
+            style={[styles.input, styles.flexInput, { color: tema.textPrimary, borderColor: tema.border }]}
+            placeholder="Denda tetap (Rp)"
+            keyboardType="decimal-pad"
+            placeholderTextColor={tema.textMuted}
+            value={form.lateFineAmount}
+            onChangeText={(value) => updateForm('lateFineAmount', value)}
+          />
+        </View>
         <TouchableOpacity style={[styles.outlineButton, { borderColor: tema.accent }]} onPress={fillCurrentLocation} disabled={isLocating}>
           {isLocating ? <ActivityIndicator color={tema.accent} /> : <Ionicons name="locate-outline" size={18} color={tema.accent} />}
           <Text style={[styles.outlineButtonText, { color: tema.accent }]}>Gunakan Lokasi Perangkat</Text>
@@ -256,7 +275,7 @@ export default function LabLocationManageScreen() {
             <View style={styles.labHeader}>
               <View style={styles.labTitleBox}>
                 <Text style={[styles.labName, { color: tema.textPrimary }]}>{lab.name}</Text>
-                <Text style={[styles.labCode, { color: tema.textSecondary }]}>{lab.code} · radius {lab.radiusMeters} m</Text>
+                <Text style={[styles.labCode, { color: tema.textSecondary }]}>{lab.code} · {lab.courseCode || 'Tanpa mata kuliah'}</Text>
               </View>
               <Text style={[styles.stateBadge, { color: lab.isActive === false ? '#DC2626' : '#059669' }]}>
                 {lab.isActive === false ? 'NONAKTIF' : 'AKTIF'}
@@ -266,6 +285,13 @@ export default function LabLocationManageScreen() {
               {Number.isFinite(Number(lab.latitude)) ? Number(lab.latitude).toFixed(6) : '-'}, {Number.isFinite(Number(lab.longitude)) ? Number(lab.longitude).toFixed(6) : '-'}
             </Text>
             {lab.address ? <Text style={[styles.address, { color: tema.textSecondary }]}>{lab.address}</Text> : null}
+            <Text style={[styles.policy, { color: tema.textSecondary }]}>
+              Radius {lab.radiusMeters} m · Grace period {lab.gracePeriodMinutes} menit · Denda Rp {Number(lab.lateFineAmount || 0).toLocaleString('id-ID')}
+            </Text>
+            <View style={styles.memberSummary}>
+              <Text style={[styles.memberCount, { color: tema.textPrimary }]}>{lab.studentMembers?.length || 0} Praktikan</Text>
+              <Text style={[styles.memberCount, { color: tema.textPrimary }]}>{lab.asprakMembers?.length || 0} Asprak</Text>
+            </View>
             <View style={styles.labActions}>
               <TouchableOpacity style={[styles.smallButton, { borderColor: tema.accent }]} onPress={() => startEditing(lab)}>
                 <Ionicons name="create-outline" size={16} color={tema.accent} />
@@ -290,6 +316,9 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 18, fontWeight: '800' },
   pageSubtitle: { fontSize: 11, marginTop: 2 },
   errorBanner: { color: '#991B1B', backgroundColor: '#FEE2E2', borderRadius: 10, padding: 12, fontSize: 12 },
+  quickActions: { flexDirection: 'row', gap: 8 },
+  quickAction: { flex: 1, minHeight: 76, borderWidth: 1, borderRadius: 12, padding: 12, justifyContent: 'space-between' },
+  quickActionText: { fontSize: 12, fontWeight: '800' },
   formCard: { borderWidth: 1, borderRadius: 14, padding: 15, gap: 10 },
   formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   formTitle: { fontSize: 15, fontWeight: '800' },
@@ -311,6 +340,9 @@ const styles = StyleSheet.create({
   stateBadge: { fontSize: 10, fontWeight: '800' },
   coordinates: { fontSize: 12, fontVariant: ['tabular-nums'] },
   address: { fontSize: 11 },
+  policy: { fontSize: 11, lineHeight: 17 },
+  memberSummary: { flexDirection: 'row', gap: 8 },
+  memberCount: { fontSize: 11, fontWeight: '700' },
   labActions: { flexDirection: 'row', gap: 8, marginTop: 7 },
   smallButton: { minHeight: 38, flex: 1, borderWidth: 1, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   smallButtonText: { fontSize: 12, fontWeight: '700' },
