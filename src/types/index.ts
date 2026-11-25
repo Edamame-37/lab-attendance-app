@@ -11,7 +11,83 @@ export type { ModeTema, ThemeColors };
 /**
  * Peran pengguna yang didukung dalam sistem
  */
-export type PeranPengguna = 'asisten' | 'praktikan';
+export type PeranPengguna = 'aslab' | 'asisten' | 'praktikan';
+
+export interface LabMemberEntry {
+  uid?: string;
+  nama: string;
+  nomorInduk: string;
+  kelas?: string;
+  email?: string;
+}
+
+export interface LabConfig {
+  id: string;
+  name: string;
+  code: string;
+  courseCode: string;
+  courseName: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  radiusMeters: number;
+  gracePeriodMinutes: number;
+  lateFineAmount: number;
+  aslabId: string;
+  asprakIds: string[];
+  asprakMembers: LabMemberEntry[];
+  studentIds: string[];
+  studentMembers: LabMemberEntry[];
+  isActive: boolean;
+}
+
+export type BulkInsertType = 'labs' | 'students' | 'asprak';
+export type BulkRowStatus = 'accepted' | 'denied';
+export type FinePaymentStatus = 'pending' | 'success' | 'failed';
+
+export interface FineRecord {
+  id: string;
+  attendanceId: string;
+  sessionId: string;
+  sessionName: string;
+  labId: string;
+  labName: string;
+  studentId: string;
+  studentName: string;
+  studentNim: string;
+  studentClass: string;
+  lateMinutes: number;
+  gracePeriodMinutes: number;
+  amount: number;
+  paymentStatus: FinePaymentStatus;
+  latestOrderId: string | null;
+  latestInvoiceId: string | null;
+  latestInvoiceUrl: string | null;
+  paidAt: unknown | null;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
+export interface PaymentTransactionRecord {
+  externalId: string;
+  xenditInvoiceId: string;
+  fineId: string;
+  sessionId: string;
+  sessionName: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  status: FinePaymentStatus;
+  xenditStatus: string;
+  paymentMethod: string | null;
+  paymentChannel: string | null;
+  invoiceUrl: string;
+  billedAt: unknown;
+  paidAt: unknown | null;
+  expiresAt: unknown;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
 
 /**
  * Siklus status sesi praktikum

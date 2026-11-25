@@ -18,6 +18,7 @@ export interface UserProfile {
   roles: PeranPengguna[];
   accountStatus: 'active' | 'suspended';
   kelas?: string | null;
+  assignedLabIds?: string[];
   createdAt?: any;
   updatedAt?: any;
 }

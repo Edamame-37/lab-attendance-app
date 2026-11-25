@@ -33,6 +33,10 @@ service cloud.firestore {
       return hasRole('asisten');
     }
 
+    function isAslab() {
+      return hasRole('aslab');
+    }
+
     function isPraktikan() {
       return hasRole('praktikan');
     }
@@ -43,7 +47,6 @@ service cloud.firestore {
           'email',
           'nama',
           'nomorInduk',
-          'kelas',
           'role',
           'roles',
           'accountStatus',
@@ -59,6 +62,7 @@ service cloud.firestore {
           'role',
           'roles',
           'accountStatus',
+          'assignedLabIds',
           'createdAt',
           'updatedAt'
         ]) &&
@@ -70,13 +74,18 @@ service cloud.firestore {
         data.nama.size() <= 100 &&
         data.nomorInduk is string &&
         data.nomorInduk.size() >= 3 &&
-        data.kelas is string &&
-        data.role in ['praktikan', 'asisten'] &&
+        data.role in ['praktikan', 'asisten', 'aslab'] &&
         data.roles is list &&
         data.roles.size() >= 1 &&
-        data.roles.size() <= 2 &&
+        data.roles.size() <= 3 &&
         data.role in data.roles &&
+        (('praktikan' in data.roles &&
+            data.get('kelas', '') is string &&
+            data.get('kelas', '').size() > 0) ||
+          (!('praktikan' in data.roles) &&
+            (data.get('kelas', '') is string || data.get('kelas', null) == null))) &&
         data.accountStatus in ['active', 'suspended'] &&
+        data.get('assignedLabIds', []) is list &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -101,9 +110,18 @@ service cloud.firestore {
         data.keys().hasOnly([
           'name',
           'code',
+          'courseCode',
+          'courseName',
           'location',
           'radiusMeters',
+          'gracePeriodMinutes',
+          'lateFineAmount',
           'address',
+          'aslabId',
+          'asprakIds',
+          'asprakMembers',
+          'studentIds',
+          'studentMembers',
           'isActive',
           'createdAt',
           'updatedAt',
@@ -111,14 +129,49 @@ service cloud.firestore {
         ]) &&
         data.name is string &&
         data.code is string &&
+        data.get('courseCode', '') is string &&
+        data.get('courseName', '') is string &&
         data.location is latlng &&
         data.radiusMeters is number &&
         data.radiusMeters > 0 &&
+        data.get('gracePeriodMinutes', 15) is number &&
+        data.get('gracePeriodMinutes', 15) >= 0 &&
+        data.get('lateFineAmount', 10000) is number &&
+        data.get('lateFineAmount', 10000) >= 0 &&
+        data.get('address', '') is string &&
+        data.get('aslabId', '') is string &&
+        data.get('asprakIds', []) is list &&
+        data.get('asprakMembers', []) is list &&
+        data.get('studentIds', []) is list &&
+        data.get('studentMembers', []) is list &&
         data.isActive is bool &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp &&
-        data.updatedBy == request.auth.uid &&
-        data.get('address', '') is string;
+        data.updatedBy == request.auth.uid;
+    }
+
+    function validNewLabData(data) {
+      return data.keys().hasAll([
+          'courseCode',
+          'courseName',
+          'gracePeriodMinutes',
+          'lateFineAmount',
+          'aslabId',
+          'asprakIds',
+          'asprakMembers',
+          'studentIds',
+          'studentMembers'
+        ]) &&
+        data.aslabId == request.auth.uid;
+    }
+
+    function canManageSessionLab(labId) {
+      return isAsisten() &&
+        labId is string &&
+        exists(/databases/$(database)/documents/labs/$(labId)) &&
+        get(/databases/$(database)/documents/labs/$(labId)).data.get('asprakIds', []) is list &&
+        (get(/databases/$(database)/documents/labs/$(labId)).data.get('asprakIds', []).size() == 0 ||
+          request.auth.uid in get(/databases/$(database)/documents/labs/$(labId)).data.get('asprakIds', []));
     }
 
     function validSessionData(data) {
@@ -160,6 +213,8 @@ service cloud.firestore {
           'waktuBuka',
           'waktuTutup',
           'daftarPeserta',
+          'gracePeriodMinutes',
+          'lateFineAmount',
           'createdAt',
           'updatedAt'
         ]) &&
@@ -182,6 +237,10 @@ service cloud.firestore {
         (data.waktuBuka == null || data.waktuBuka is timestamp) &&
         (data.waktuTutup == null || data.waktuTutup is timestamp) &&
         data.get('daftarPeserta', []) is list &&
+        data.get('gracePeriodMinutes', 15) is number &&
+        data.get('gracePeriodMinutes', 15) >= 0 &&
+        data.get('lateFineAmount', 10000) is number &&
+        data.get('lateFineAmount', 10000) >= 0 &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -206,6 +265,9 @@ service cloud.firestore {
         /databases/$(database)/documents/labs/$(session.labId)
       ).data;
       let calculatedDistance = attendance.location.distance(lab.location);
+      let punctualityFields = ['isLate', 'lateMinutes', 'attendancePunctuality'];
+      let hasPunctuality = attendance.keys().hasAll(punctualityFields);
+      let hasAnyPunctuality = attendance.keys().hasAny(punctualityFields);
 
       return attendance.keys().hasAll([
           'id',
@@ -245,7 +307,10 @@ service cloud.firestore {
           'location',
           'locationAccuracyMeters',
           'distanceMeters',
-          'locationCapturedAt'
+          'locationCapturedAt',
+          'isLate',
+          'lateMinutes',
+          'attendancePunctuality'
         ]) &&
         attendance.id == attendanceId &&
         attendanceId == attendance.sessionId + '_' + request.auth.uid &&
@@ -278,7 +343,16 @@ service cloud.firestore {
         lab.location is latlng &&
         lab.radiusMeters is number &&
         calculatedDistance <= lab.radiusMeters &&
-        math.abs(attendance.distanceMeters - calculatedDistance) <= 2;
+        math.abs(attendance.distanceMeters - calculatedDistance) <= 2 &&
+        (!hasAnyPunctuality || (
+          hasPunctuality &&
+          attendance.isLate is bool &&
+          attendance.lateMinutes is number &&
+          attendance.lateMinutes >= 0 &&
+          attendance.attendancePunctuality in ['ON_TIME', 'LATE'] &&
+          ((attendance.isLate == true && attendance.lateMinutes > 0 && attendance.attendancePunctuality == 'LATE') ||
+           (attendance.isLate == false && attendance.lateMinutes == 0 && attendance.attendancePunctuality == 'ON_TIME'))
+        ));
     }
 
     function validLeaveCreate(requestId) {
@@ -344,6 +418,90 @@ service cloud.firestore {
         session.kelas == getUserData().kelas;
     }
 
+    function validFineCreate(fineId) {
+      let fine = request.resource.data;
+      let attendancePath = /databases/$(database)/documents/attendances/$(fine.attendanceId);
+      let sessionPath = /databases/$(database)/documents/sessions/$(fine.sessionId);
+      let leavePath = /databases/$(database)/documents/leave_requests/$(fineId);
+      let attendance = get(attendancePath).data;
+      let session = get(sessionPath).data;
+
+      return fine.keys().hasAll([
+          'id',
+          'attendanceId',
+          'sessionId',
+          'sessionName',
+          'labId',
+          'labName',
+          'studentId',
+          'studentName',
+          'studentNim',
+          'studentClass',
+          'lateMinutes',
+          'gracePeriodMinutes',
+          'amount',
+          'paymentStatus',
+          'latestOrderId',
+          'latestInvoiceId',
+          'latestInvoiceUrl',
+          'paidAt',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        fine.keys().hasOnly([
+          'id',
+          'attendanceId',
+          'sessionId',
+          'sessionName',
+          'labId',
+          'labName',
+          'studentId',
+          'studentName',
+          'studentNim',
+          'studentClass',
+          'lateMinutes',
+          'gracePeriodMinutes',
+          'amount',
+          'paymentStatus',
+          'latestOrderId',
+          'latestInvoiceId',
+          'latestInvoiceUrl',
+          'paidAt',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        exists(attendancePath) &&
+        exists(sessionPath) &&
+        fine.id == fineId &&
+        fine.attendanceId == fineId &&
+        fineId == fine.sessionId + '_' + request.auth.uid &&
+        fine.studentId == request.auth.uid &&
+        fine.studentName == getUserData().nama &&
+        fine.studentNim == getUserData().nomorInduk &&
+        fine.studentClass == getUserData().kelas &&
+        fine.sessionName is string &&
+        fine.labId == session.labId &&
+        fine.labName is string &&
+        fine.lateMinutes is number &&
+        fine.lateMinutes > 0 &&
+        fine.lateMinutes == attendance.get('lateMinutes', 0) &&
+        fine.gracePeriodMinutes == session.get('gracePeriodMinutes', 15) &&
+        fine.amount is number &&
+        fine.amount > 0 &&
+        fine.amount == session.get('lateFineAmount', 10000) &&
+        attendance.studentId == request.auth.uid &&
+        attendance.get('isLate', false) == true &&
+        attendance.get('attendancePunctuality', '') == 'LATE' &&
+        fine.paymentStatus == 'pending' &&
+        fine.latestOrderId == null &&
+        fine.latestInvoiceId == null &&
+        fine.latestInvoiceUrl == null &&
+        fine.paidAt == null &&
+        fine.createdAt == request.time &&
+        fine.updatedAt == request.time &&
+        (!exists(leavePath) || get(leavePath).data.status != 'approved');
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
 
@@ -352,6 +510,7 @@ service cloud.firestore {
         request.resource.data.email == request.auth.token.email &&
         request.resource.data.role == 'praktikan' &&
         request.resource.data.roles == ['praktikan'] &&
+        request.resource.data.get('assignedLabIds', []) == [] &&
         request.resource.data.accountStatus == 'active' &&
         request.resource.data.createdAt == request.time &&
         request.resource.data.updatedAt == request.time;
@@ -361,10 +520,11 @@ service cloud.firestore {
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.email == resource.data.email &&
         request.resource.data.nomorInduk == resource.data.nomorInduk &&
-        request.resource.data.kelas == resource.data.kelas &&
+        request.resource.data.get('kelas', null) == resource.data.get('kelas', null) &&
         request.resource.data.role == resource.data.role &&
         request.resource.data.roles == resource.data.roles &&
         request.resource.data.accountStatus == resource.data.accountStatus &&
+        request.resource.data.get('assignedLabIds', []) == resource.data.get('assignedLabIds', []) &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.updatedAt == request.time &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nama', 'updatedAt']);
@@ -375,21 +535,31 @@ service cloud.firestore {
     match /labs/{labId} {
       allow read: if isActiveUser();
 
-      allow create: if isAsisten() &&
+      allow create: if isAslab() &&
         validLabData(request.resource.data) &&
+        validNewLabData(request.resource.data) &&
         request.resource.data.createdAt == request.time &&
         request.resource.data.updatedAt == request.time;
 
-      allow update: if isAsisten() &&
+      allow update: if isAslab() &&
         validLabData(request.resource.data) &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.updatedAt == request.time &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name',
           'code',
+          'courseCode',
+          'courseName',
           'location',
           'radiusMeters',
+          'gracePeriodMinutes',
+          'lateFineAmount',
           'address',
+          'aslabId',
+          'asprakIds',
+          'asprakMembers',
+          'studentIds',
+          'studentMembers',
           'isActive',
           'updatedAt',
           'updatedBy'
@@ -401,7 +571,7 @@ service cloud.firestore {
     match /sessions/{sessionId} {
       allow read: if isActiveUser();
 
-      allow create: if isAsisten() &&
+      allow create: if canManageSessionLab(request.resource.data.labId) &&
         validSessionData(request.resource.data) &&
         request.resource.data.asistenId == request.auth.uid &&
         request.resource.data.status == 'closed' &&
@@ -412,7 +582,7 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time &&
         labExistsAndActive(request.resource.data.labId);
 
-      allow update: if isAsisten() &&
+      allow update: if canManageSessionLab(request.resource.data.labId) &&
         resource.data.asistenId == request.auth.uid &&
         request.resource.data.asistenId == resource.data.asistenId &&
         request.resource.data.createdAt == resource.data.createdAt &&
@@ -421,13 +591,15 @@ service cloud.firestore {
         validSessionTransition(resource.data, request.resource.data) &&
         labExistsAndActive(request.resource.data.labId);
 
-      allow delete: if isAsisten() && resource.data.asistenId == request.auth.uid;
+      allow delete: if resource.data.asistenId == request.auth.uid &&
+        canManageSessionLab(resource.data.labId);
     }
 
     match /attendances/{attendanceId} {
       allow read: if isActiveUser() && (
         resource.data.get('studentId', '') == request.auth.uid ||
-        isAsisten()
+        isAsisten() ||
+        isAslab()
       );
 
       allow create: if isPraktikan() && validAttendanceCreate(attendanceId);
@@ -453,6 +625,27 @@ service cloud.firestore {
           .hasOnly(['status', 'reviewedBy', 'reviewedByUid', 'reviewedAt']);
 
       allow delete: if false;
+    }
+
+    match /fines/{fineId} {
+      allow read: if isActiveUser() && (
+        resource.data.studentId == request.auth.uid ||
+        isAslab() ||
+        isAsisten()
+      );
+
+      allow create: if isPraktikan() && validFineCreate(fineId);
+
+      allow update, delete: if false;
+    }
+
+    match /payment_transactions/{txId} {
+      allow read: if isActiveUser() && (
+        resource.data.studentId == request.auth.uid ||
+        isAslab()
+      );
+
+      allow create, update, delete: if false;
     }
   }
 }

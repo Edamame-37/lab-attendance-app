@@ -1,6 +1,6 @@
 import type { PeranPengguna } from '@/types';
 
-export const AUTH_ROLES: readonly PeranPengguna[] = ['praktikan', 'asisten'];
+export const AUTH_ROLES: readonly PeranPengguna[] = ['praktikan', 'asisten', 'aslab'];
 
 export type AccountStatus = 'active' | 'suspended';
 
@@ -13,6 +13,7 @@ export type AuthProfileCandidate = {
   role?: unknown;
   roles?: unknown;
   accountStatus?: unknown;
+  assignedLabIds?: unknown;
 };
 
 export type ProfileValidationResult = {

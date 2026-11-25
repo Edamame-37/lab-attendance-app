@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { PeranPengguna } from '@/types';
 
 type RoleRouteGuardProps = {
-  allowedRole: PeranPengguna;
+  allowedRole: PeranPengguna | PeranPengguna[];
   children: React.ReactNode;
 };
 
@@ -13,8 +13,9 @@ export function RoleRouteGuard({
   children,
 }: RoleRouteGuardProps): React.JSX.Element {
   const { role } = useAuth();
+  const allowedRoles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
 
-  if (role !== allowedRole) {
+  if (!role || !allowedRoles.includes(role)) {
     return <Redirect href="/(tabs)" />;
   }
 
