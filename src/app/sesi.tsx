@@ -30,6 +30,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAttendance } from '@/hooks/useAttendance';
 import { AttendanceRecapCard } from '@/components/asisten/AttendanceRecapCard';
 import { subscribeToLabs } from '@/services/labService';
+import { filterSessionsForAsprak } from '@/services/firestoreService';
 
 export default function SesiScreen(): React.JSX.Element {
   const router = useRouter();
@@ -84,13 +85,19 @@ export default function SesiScreen(): React.JSX.Element {
     return unsubscribe;
   }, []);
 
+  // Filter sesi khusus laboratorium tanggung jawab Asprak (SRS-FT-20)
+  const assignedLabs = activeLabs.filter(
+    (lab: any) => Array.isArray(lab.asprakIds) && lab.asprakIds.includes(userProfile?.uid)
+  );
+  const displayedSessions: any[] = filterSessionsForAsprak(sessions, activeLabs, userProfile?.uid || '');
+
   // Cari sesi aktif saat ini
   const activeSelectedSession: any =
-    sessions.find((s: any) => s.id === selectedSessionId) ||
-    sessions.find((s: any) => s.status === 'open' || s.statusSesi === 'DIBUKA') ||
-    sessions[0];
+    displayedSessions.find((s: any) => s.id === selectedSessionId) ||
+    displayedSessions.find((s: any) => s.status === 'open' || s.statusSesi === 'DIBUKA') ||
+    displayedSessions[0];
 
-  // Handler Buat Sesi Baru (SRS-FT-02)
+  // Handler Buat Sesi Baru (SRS-FT-02 & SRS-FT-21)
   const onSubmitCreateSession = async () => {
     if (!formNamaPraktikum.trim() || !formKelas.trim() || !formLabId) {
       Alert.alert('Validasi Gagal', 'Nama praktikum, kelas, dan laboratorium wajib diisi.');
@@ -113,6 +120,8 @@ export default function SesiScreen(): React.JSX.Element {
       hari: formHari.trim(),
       jamMulai: formJamMulai.trim(),
       jamSelesai: formJamSelesai.trim(),
+      gracePeriodMinutes: selectedLab?.gracePeriodMinutes ?? 15,
+      lateFineAmount: selectedLab?.lateFineAmount ?? 10000,
       namaAsisten: userProfile.nama,
       asistenId: userProfile.uid,
     };
@@ -315,6 +324,21 @@ export default function SesiScreen(): React.JSX.Element {
               </TouchableOpacity>
             </View>
 
+              {/* Banner Penugasan Laboratorium Asprak (SRS-FT-20) */}
+              <View style={[styles.asprakNoticeBox, { backgroundColor: tema.surfaceRaised, borderColor: tema.border }]}>
+                <Ionicons name="shield-checkmark" size={18} color={tema.accent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.asprakNoticeTitle, { color: tema.textPrimary }]}>
+                    Pengelolaan Sesi Terfokus Asprak
+                  </Text>
+                  <Text style={[styles.asprakNoticeSub, { color: tema.textSecondary }]}>
+                    {assignedLabs.length > 0
+                      ? `Lab Tanggung Jawab: ${assignedLabs.map((l: any) => l.name).join(', ')}`
+                      : 'Menampilkan praktikum dan sesi yang Anda kelola pada laboratorium binaan.'}
+                  </Text>
+                </View>
+              </View>
+
               {/* Komponen Rekap Live Asisten (SRS-FT-04) */}
               {activeSelectedSession && (
                 <View style={styles.liveRecapContainer}>
@@ -323,6 +347,70 @@ export default function SesiScreen(): React.JSX.Element {
                     attendances={(selectedSessionId === activeSelectedSession.id ? attendances : []) as any}
                     loading={loading || actionLoading}
                   />
+
+                  {/* Rincian Ketepatan Waktu Presensi Mahasiswa (SRS-FT-21) */}
+                  {selectedSessionId === activeSelectedSession.id && attendances.length > 0 && (
+                    <View style={[styles.punctualityCard, { backgroundColor: tema.surface, borderColor: tema.border }]}>
+                      <View style={styles.punctualityHeader}>
+                        <Ionicons name="timer-outline" size={18} color={tema.accent} />
+                        <Text style={[styles.punctualityTitle, { color: tema.textPrimary }]}>
+                          Ketepatan Waktu & Status Denda ({attendances.length} Mahasiswa)
+                        </Text>
+                      </View>
+                      {attendances.map((item: any, idx: number) => {
+                        const isLate = Boolean(item.isLate || item.attendancePunctuality === 'LATE');
+                        return (
+                          <View
+                            key={item.id || item.studentId || idx}
+                            style={[
+                              styles.punctualityRow,
+                              { borderBottomColor: tema.borderSubtle },
+                              idx === attendances.length - 1 && { borderBottomWidth: 0 },
+                            ]}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.punctualityName, { color: tema.textPrimary }]}>
+                                {item.studentName || 'Praktikan'}
+                              </Text>
+                              <Text style={[styles.punctualityMeta, { color: tema.textSecondary }]}>
+                                {item.studentNim || '-'} • {item.waktuPresensi || '-'}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.punctualityBadge,
+                                {
+                                  backgroundColor: isLate
+                                    ? '#FEF3C7'
+                                    : (tema.statusHadirBg || '#DCFCE7'),
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name={isLate ? 'alert-circle' : 'checkmark-circle'}
+                                size={13}
+                                color={isLate ? '#D97706' : (tema.statusHadir || '#16A34A')}
+                              />
+                              <Text
+                                style={[
+                                  styles.punctualityBadgeText,
+                                  {
+                                    color: isLate
+                                      ? '#D97706'
+                                      : (tema.statusHadir || '#16A34A'),
+                                  },
+                                ]}
+                              >
+                                {isLate
+                                  ? `TERLAMBAT (+${item.lateMinutes || 1} mnt)`
+                                  : 'TEPAT WAKTU'}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -334,18 +422,18 @@ export default function SesiScreen(): React.JSX.Element {
                     Menghubungkan ke Cloud Firestore...
                   </Text>
                 </View>
-              ) : sessions.length === 0 ? (
+              ) : displayedSessions.length === 0 ? (
                 <View style={[styles.emptyBox, { backgroundColor: tema.surface, borderColor: tema.border }]}>
                   <Ionicons name="calendar-outline" size={38} color={tema.textMuted} />
                   <Text style={[styles.emptyTitle, { color: tema.textPrimary }]}>
                     Belum Ada Dokumen Sesi di Firestore
                   </Text>
                   <Text style={[styles.emptyDesc, { color: tema.textSecondary }]}>
-                    Buat laboratorium aktif terlebih dahulu, lalu gunakan tombol &quot;Buat Sesi&quot;.
+                    Gunakan tombol &quot;+ Buat Sesi&quot; untuk menambahkan sesi praktikum pada laboratorium tanggung jawab Anda.
                   </Text>
                 </View>
               ) : (
-                sessions.map((sesi) => {
+                displayedSessions.map((sesi) => {
                   const isOpen = sesi.status === 'open' || sesi.statusSesi === 'DIBUKA';
                   const isSelected = activeSelectedSession?.id === sesi.id;
 
@@ -549,6 +637,23 @@ export default function SesiScreen(): React.JSX.Element {
                 )}
               </ScrollView>
 
+              {/* Kebijakan Grace Period & Denda Terpilih (SRS-FT-21) */}
+              {formLabId ? (
+                <View style={[styles.policyBanner, { backgroundColor: tema.surfaceRaised, borderColor: tema.border }]}>
+                  <Ionicons name="information-circle-outline" size={16} color={tema.accent} />
+                  <Text style={[styles.policyBannerText, { color: tema.textSecondary }]}>
+                    Kebijakan: Toleransi keterlambatan{' '}
+                    <Text style={{ fontWeight: '700', color: tema.textPrimary }}>
+                      {activeLabs.find((l) => l.id === formLabId)?.gracePeriodMinutes ?? 15} menit
+                    </Text>
+                    {' · Denda '}
+                    <Text style={{ fontWeight: '700', color: '#D97706' }}>
+                      Rp {Number(activeLabs.find((l) => l.id === formLabId)?.lateFineAmount ?? 10000).toLocaleString('id-ID')}
+                    </Text>
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TextInput
                   style={[styles.modalInput, { flex: 1, borderColor: tema.border, color: tema.textPrimary }]}
@@ -665,6 +770,23 @@ export default function SesiScreen(): React.JSX.Element {
                 )}
               </ScrollView>
 
+              {/* Kebijakan Grace Period & Denda Terpilih (SRS-FT-21) */}
+              {formLabId ? (
+                <View style={[styles.policyBanner, { backgroundColor: tema.surfaceRaised, borderColor: tema.border }]}>
+                  <Ionicons name="information-circle-outline" size={16} color={tema.accent} />
+                  <Text style={[styles.policyBannerText, { color: tema.textSecondary }]}>
+                    Kebijakan: Toleransi keterlambatan{' '}
+                    <Text style={{ fontWeight: '700', color: tema.textPrimary }}>
+                      {activeLabs.find((l) => l.id === formLabId)?.gracePeriodMinutes ?? 15} menit
+                    </Text>
+                    {' · Denda '}
+                    <Text style={{ fontWeight: '700', color: '#D97706' }}>
+                      Rp {Number(activeLabs.find((l) => l.id === formLabId)?.lateFineAmount ?? 10000).toLocaleString('id-ID')}
+                    </Text>
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TextInput
                   style={[styles.modalInput, { flex: 1, borderColor: tema.border, color: tema.textPrimary }]}
@@ -722,6 +844,21 @@ export default function SesiScreen(): React.JSX.Element {
               <View style={[styles.modalInput, { borderColor: tema.border, justifyContent: 'center' }]}>
                 <Text style={{ color: tema.textPrimary }}>
                   {targetSessionToOpen?.ruangLab || 'Laboratorium belum dipilih'}
+                </Text>
+              </View>
+
+              {/* Info Kebijakan Toleransi & Denda Sesi (SRS-FT-21) */}
+              <View style={[styles.policyBanner, { backgroundColor: tema.surfaceRaised, borderColor: tema.border, marginBottom: 10 }]}>
+                <Ionicons name="information-circle-outline" size={16} color={tema.accent} />
+                <Text style={[styles.policyBannerText, { color: tema.textSecondary }]}>
+                  Toleransi keterlambatan:{' '}
+                  <Text style={{ fontWeight: '700', color: tema.textPrimary }}>
+                    {targetSessionToOpen?.gracePeriodMinutes ?? 15} menit
+                  </Text>
+                  {' · Denda: '}
+                  <Text style={{ fontWeight: '700', color: '#D97706' }}>
+                    Rp {Number(targetSessionToOpen?.lateFineAmount ?? 10000).toLocaleString('id-ID')}
+                  </Text>
                 </Text>
               </View>
 
@@ -1170,5 +1307,81 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  asprakNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  asprakNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  asprakNoticeSub: {
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  punctualityCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    gap: 8,
+  },
+  punctualityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  punctualityTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  punctualityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  punctualityName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  punctualityMeta: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  punctualityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  punctualityBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  policyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+    marginVertical: 6,
+  },
+  policyBannerText: {
+    fontSize: 11,
+    flex: 1,
   },
 });

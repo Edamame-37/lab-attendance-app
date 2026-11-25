@@ -65,15 +65,18 @@ export const LeaveReviewScreen = () => {
   }, []);
 
   const handleReview = (requestId, decision) => {
-    const label = decision === 'approved' ? 'menyetujui' : 'menolak';
+    const isApprove = decision === 'approved';
+    const message = isApprove
+      ? 'Apakah kamu yakin ingin MENYETUJUI pengajuan izin ini?\n\nKebijakan: Pengajuan yang disetujui berstatus "Tidak Hadir dengan Izin (Excused Absence)". Praktikan dibebaskan dari denda keterlambatan dan status kehadiran TIDAK diubah menjadi hadir.'
+      : 'Apakah kamu yakin ingin MENOLAK pengajuan izin ini?';
 
     Alert.alert(
       'Konfirmasi Keputusan',
-      `Apakah kamu yakin ingin ${label} pengajuan izin ini?`,
+      message,
       [
         { text: 'Batal', style: 'cancel' },
         {
-          text: 'Ya, Simpan',
+          text: isApprove ? 'Setujui (Bebas Denda)' : 'Tolak',
           onPress: async () => {
             setProcessingId(requestId);
 
@@ -173,6 +176,13 @@ export const LeaveReviewScreen = () => {
           </View>
         ) : (
           <View style={styles.reviewInfo}>
+            {item.status === 'approved' ? (
+              <View style={styles.excusedBadge}>
+                <Text style={styles.excusedText}>
+                  Tidak Hadir dengan Izin (Excused Absence) — Bebas denda keterlambatan & tidak mengubah kehadiran menjadi hadir.
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.reviewInfoText}>
               Diputuskan oleh: {item.reviewedBy || '-'}
             </Text>
@@ -359,5 +369,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 3,
+  },
+  excusedBadge: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 8,
+  },
+  excusedText: {
+    fontSize: 11,
+    color: '#15803D',
+    fontWeight: '600',
+    lineHeight: 16,
   },
 });
