@@ -46,3 +46,7 @@ yarn-error.*
 
 # local web testing & preview runner
 .web-dev/
+
+# Backend
+backend/.env
+backend/service-account.json
