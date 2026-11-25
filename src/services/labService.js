@@ -348,15 +348,17 @@ const bulkAssignMembersToLab = async ({
   });
 };
 
-export const bulkAssignStudentsToLab = (params) => bulkAssignMembersToLab({
+export const bulkAssignStudentsToLab = ({ students, ...params }) => bulkAssignMembersToLab({
   ...params,
+  members: students,
   memberField: 'studentMembers',
   idField: 'studentIds',
   requireClass: true,
 });
 
-export const bulkAssignAspraksToLab = (params) => bulkAssignMembersToLab({
+export const bulkAssignAspraksToLab = ({ aspraks, ...params }) => bulkAssignMembersToLab({
   ...params,
+  members: aspraks,
   memberField: 'asprakMembers',
   idField: 'asprakIds',
   requireClass: false,
