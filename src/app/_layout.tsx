@@ -39,8 +39,13 @@ function RootNavigator(): React.JSX.Element {
 
           <Stack.Protected guard={role === 'asisten'} redirectTo="/(tabs)">
             <Stack.Screen name="sesi" options={{ title: 'Kelola Sesi Praktikum', headerShown: false }} />
-            <Stack.Screen name="lokasi-lab" options={{ title: 'Lokasi Laboratorium', headerShown: false }} />
             <Stack.Screen name="review-izin" options={{ title: 'Review Pengajuan Izin' }} />
+          </Stack.Protected>
+
+          <Stack.Protected guard={role === 'aslab'} redirectTo="/(tabs)">
+            <Stack.Screen name="lokasi-lab" options={{ title: 'Lokasi Laboratorium', headerShown: false }} />
+            <Stack.Screen name="bulk-insert" options={{ title: 'Bulk Insert Laboratorium', headerShown: false }} />
+            <Stack.Screen name="transfer-lab" options={{ title: 'Transfer Anggota Laboratorium', headerShown: false }} />
           </Stack.Protected>
 
           <Stack.Protected guard={role === 'praktikan'} redirectTo="/(tabs)">
