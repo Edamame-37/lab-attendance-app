@@ -4,7 +4,7 @@ import LabLocationManageScreen from '@/screens/asisten/LabLocationManageScreen';
 
 export default function LabLocationRoute(): React.JSX.Element {
   return (
-    <RoleRouteGuard allowedRole="asisten">
+    <RoleRouteGuard allowedRole="aslab">
       <LabLocationManageScreen />
     </RoleRouteGuard>
   );

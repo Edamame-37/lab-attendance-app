@@ -13,7 +13,14 @@ export interface AppHeaderProps {
 
 const ROLE_LABELS: Record<PeranPengguna, string> = {
   praktikan: 'Praktikan',
-  asisten: 'Asisten Laboratorium',
+  asisten: 'Asisten Praktikum (Asprak)',
+  aslab: 'Asisten Laboratorium (Aslab)',
+};
+
+const ROLE_ICONS: Record<PeranPengguna, React.ComponentProps<typeof Ionicons>['name']> = {
+  praktikan: 'school-outline',
+  asisten: 'clipboard-outline',
+  aslab: 'shield-checkmark-outline',
 };
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ customTitle }) => {
@@ -33,9 +40,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ customTitle }) => {
     [userProfile?.nama],
   );
 
-  const roleText = role === 'asisten'
-    ? ROLE_LABELS.asisten
-    : `${ROLE_LABELS.praktikan}${userProfile?.kelas ? ` · ${userProfile.kelas}` : ''}`;
+  const roleText = role
+    ? `${ROLE_LABELS[role]}${role === 'praktikan' && userProfile?.kelas ? ` · ${userProfile.kelas}` : ''}`
+    : 'Role tidak tersedia';
 
   const changeRole = async (nextRole: PeranPengguna): Promise<void> => {
     if (nextRole === role) {
@@ -106,7 +113,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ customTitle }) => {
                   accessibilityLabel={`Mode ${ROLE_LABELS[availableRole]}`}
                 >
                   <Ionicons
-                    name={availableRole === 'asisten' ? 'shield-checkmark-outline' : 'school-outline'}
+                    name={ROLE_ICONS[availableRole]}
                     size={20}
                     color={selected ? tema.accent : tema.textSecondary}
                   />
