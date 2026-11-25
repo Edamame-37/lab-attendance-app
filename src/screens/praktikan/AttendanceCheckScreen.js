@@ -194,7 +194,25 @@ export default function AttendanceCheckScreen() {
       }
 
       setAttendanceState({ attendanceKey, attended: true });
-      Alert.alert('Presensi Berhasil', result.message);
+
+      if (result.isLate) {
+        Alert.alert(
+          'Presensi Tercatat (Terlambat)',
+          `Presensi Anda tercatat terlambat (+${result.lateMinutes} menit).\n\nTagihan denda keterlambatan sebesar Rp ${Number(result.fineAmount || 10000).toLocaleString('id-ID')} telah dibuat secara otomatis.\n\nPerhatian: Pembayaran denda tidak mengubah status kehadiran Anda.`,
+          [
+            { text: 'Nanti Saja', style: 'cancel' },
+            {
+              text: 'Bayar Denda',
+              onPress: () => router.push('/tagihan-denda'),
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Presensi Berhasil',
+          'Presensi Anda berhasil dicatat tepat waktu ke dalam Cloud Firestore!'
+        );
+      }
     } catch (submitError) {
       setError(submitError.message || 'Presensi tidak dapat disimpan.');
     } finally {
@@ -286,6 +304,18 @@ export default function AttendanceCheckScreen() {
             <Text style={[styles.infoKey, { color: tema.textSecondary }]}>Status presensi</Text>
             <Text style={[styles.infoValue, { color: isAlreadyAttended ? '#059669' : tema.textPrimary }]}>
               {isAlreadyAttended ? 'SUDAH PRESENSI' : 'BELUM PRESENSI'}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoKey, { color: tema.textSecondary }]}>Batas toleransi</Text>
+            <Text style={[styles.infoValue, { color: tema.textPrimary }]}>
+              {selectedSession.gracePeriodMinutes ?? lab?.gracePeriodMinutes ?? 15} menit sejak dibuka
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoKey, { color: tema.textSecondary }]}>Denda keterlambatan</Text>
+            <Text style={[styles.infoValue, { color: '#D97706' }]}>
+              Rp {Number(selectedSession.lateFineAmount ?? lab?.lateFineAmount ?? 10000).toLocaleString('id-ID')}
             </Text>
           </View>
         </View>

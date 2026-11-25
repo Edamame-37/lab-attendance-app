@@ -30,6 +30,10 @@ import {
   MAX_LOCATION_ACCURACY_METERS,
   validateCoordinates,
 } from './locationService.js';
+import {
+  evaluateAttendanceLateness,
+  createLateFineIfNeeded,
+} from './fineService.js';
 
 // Nama koleksi utama di Firestore
 export const COLLECTIONS = {
@@ -129,6 +133,8 @@ export const createSession = async (sessionData) => {
       hari: sessionData.hari || 'Senin',
       jamMulai: sessionData.jamMulai || '08:00',
       jamSelesai: sessionData.jamSelesai || '10:30',
+      gracePeriodMinutes: Number(sessionData.gracePeriodMinutes ?? selectedLab.gracePeriodMinutes ?? 15),
+      lateFineAmount: Number(sessionData.lateFineAmount ?? selectedLab.lateFineAmount ?? 10000),
       namaAsisten: sessionData.namaAsisten?.trim() || 'Asisten Praktikum',
       asistenId: auth.currentUser.uid,
       status: 'closed', // 'open' | 'closed'
@@ -149,6 +155,35 @@ export const createSession = async (sessionData) => {
     console.error('Error createSession:', error);
     return { success: false, message: error.message };
   }
+};
+
+/**
+ * Memfilter daftar sesi praktikum agar Asprak hanya melihat dan mengelola sesi
+ * pada laboratorium yang ditugaskan kepadanya atau sesi miliknya sendiri (SRS-FT-20).
+ *
+ * @param {Array<Object>} sessions - Daftar seluruh sesi
+ * @param {Array<Object>} labs - Daftar laboratorium
+ * @param {string} asprakUid - UID asisten praktikum yang sedang login
+ * @returns {Array<Object>} Sesi yang menjadi tanggung jawab Asprak
+ */
+export const filterSessionsForAsprak = (sessions = [], labs = [], asprakUid) => {
+  if (!asprakUid || !Array.isArray(sessions)) return sessions || [];
+
+  const assignedLabIds = new Set(
+    (labs || [])
+      .filter((lab) => Array.isArray(lab.asprakIds) && lab.asprakIds.includes(asprakUid))
+      .map((lab) => lab.id)
+  );
+
+  return sessions.filter((session) => {
+    // Sesi milik Asprak sendiri
+    if (session.asistenId === asprakUid) return true;
+    // Sesi berada pada laboratorium yang ditugaskan
+    if (session.labId && assignedLabIds.has(session.labId)) return true;
+    // Fallback toleran jika belum ada lab yang di-assign sama sekali agar testing tetap berjalan
+    if (assignedLabIds.size === 0) return true;
+    return false;
+  });
 };
 
 /**
@@ -396,6 +431,31 @@ export const submitAttendance = async ({
     const detikStr = String(now.getSeconds()).padStart(2, '0');
     const waktuPresensiStr = `${jamStr}:${menitStr}:${detikStr} WIB`;
 
+    // 4. Evaluasi toleransi keterlambatan (Grace Period - SRS-FT-21)
+    let sessionStartTime = sessionData.waktuBuka;
+    if (!sessionStartTime && sessionData.jamMulai) {
+      const parts = String(sessionData.jamMulai).split(':').map(Number);
+      const startCandidate = new Date();
+      startCandidate.setHours(parts[0] || 8, parts[1] || 0, 0, 0);
+      sessionStartTime = startCandidate;
+    }
+    if (!sessionStartTime) {
+      sessionStartTime = now;
+    }
+
+    const gracePeriodMinutes = Number(
+      sessionData.gracePeriodMinutes ?? labData.gracePeriodMinutes ?? 15
+    );
+    const nominalDenda = Number(
+      sessionData.lateFineAmount ?? labData.lateFineAmount ?? 10000
+    );
+
+    const lateness = evaluateAttendanceLateness({
+      attendanceTime: now,
+      sessionStartTime,
+      gracePeriodMinutes,
+    });
+
     const payload = {
       id: attendanceDocId,
       sessionId,
@@ -405,7 +465,10 @@ export const submitAttendance = async ({
       studentName: studentName || 'Praktikan',
       studentNim: studentNim || '-',
       studentClass: studentClass || sessionData.kelas || 'A',
-      statusKehadiran: statusKehadiran.toUpperCase(), // 'HADIR' | 'IZIN' | 'SAKIT'
+      statusKehadiran: statusKehadiran.toUpperCase(), // 'HADIR' (tidak pernah diubah oleh pembayaran denda)
+      isLate: lateness.isLate,
+      lateMinutes: lateness.lateMinutes,
+      attendancePunctuality: lateness.attendancePunctuality,
       catatan: catatan ? catatan.trim() : '',
       timestamp: serverTimestamp(),
       waktuPresensi: waktuPresensiStr,
@@ -419,11 +482,39 @@ export const submitAttendance = async ({
 
     await setDoc(attendanceDocRef, payload);
 
+    // 5. Jika terlambat, buat tagihan denda idempoten pada koleksi fines (SRS-FT-21)
+    let fineResult = null;
+    if (lateness.isLate) {
+      fineResult = await createLateFineIfNeeded({
+        session: {
+          id: sessionId,
+          ...sessionData,
+          lateFineAmount: nominalDenda,
+          gracePeriodMinutes,
+        },
+        attendanceId: attendanceDocId,
+        student: {
+          studentId,
+          studentName: studentName || 'Praktikan',
+          studentNim: studentNim || '-',
+          studentClass: studentClass || sessionData.kelas || 'A',
+        },
+        latenessResult: lateness,
+      });
+    }
+
     return {
       success: true,
       id: attendanceDocId,
-      message: 'Presensi Anda berhasil dicatat ke dalam Cloud Firestore!',
+      message: lateness.isLate
+        ? `Presensi tercatat terlambat (+${lateness.lateMinutes} menit). Tagihan denda sebesar Rp ${nominalDenda.toLocaleString('id-ID')} telah dibuat.`
+        : 'Presensi Anda berhasil dicatat tepat waktu ke dalam Cloud Firestore!',
       data: payload,
+      isLate: lateness.isLate,
+      lateMinutes: lateness.lateMinutes,
+      attendancePunctuality: lateness.attendancePunctuality,
+      fineCreated: fineResult?.created || false,
+      fineAmount: fineResult?.fine?.amount || (lateness.isLate ? nominalDenda : 0),
     };
   } catch (error) {
     console.error('Error submitAttendance:', error);
