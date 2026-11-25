@@ -1,4 +1,6 @@
+import { Share } from 'react-native';
 import {
+  downloadBulkTemplate,
   parseBulkCsvText,
   validateBulkRowData,
 } from '../src/services/bulkTemplateService';
@@ -63,6 +65,23 @@ describe('bulk CSV staging', () => {
       'lateFineAmount',
     ]);
     expect(result.isValid).toBe(false);
+  });
+
+  test('shares a native CSV template without adding a file-system dependency', async () => {
+    const shareSpy = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+
+    await expect(downloadBulkTemplate('students')).resolves.toMatchObject({
+      success: true,
+      fileName: 'template-bulk-students.csv',
+    });
+    expect(shareSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'template-bulk-students.csv',
+        message: expect.stringContaining('nomorInduk,nama,kelas,email,uid'),
+      }),
+      expect.any(Object),
+    );
+    shareSpy.mockRestore();
   });
 });
 
